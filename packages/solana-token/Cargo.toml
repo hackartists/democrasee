@@ -1,0 +1,15 @@
+[package]
+name = "ratel-solana-token"
+version = "0.1.0"
+authors.workspace = true
+description.workspace = true
+edition.workspace = true
+repository.workspace = true
+license.workspace = true
+
+[dependencies]
+solana-program = "2.2.1"
+spl-token-2022 = { version = "7.0.0", features = ["no-entrypoint"] }
+
+[lib]
+crate-type = ["cdylib", "lib"]
