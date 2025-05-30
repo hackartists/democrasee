@@ -24,6 +24,7 @@ regex = "1.11.1"
 
 bdk.workspace = true
 sqlx = { workspace = true,  optional = true }
+async-graphql = "7.0.17"
 
 [features]
 web = ["bdk/web"]

@@ -61,21 +61,21 @@ pub struct Bill {
 }
 
 impl Bill {
-    pub fn summary(&self, lang: Language) -> String {
+    pub fn get_summary(&self, lang: Language) -> String {
         match lang {
             Language::En => self.en_summary.clone().unwrap_or_default(),
             _ => self.summary.clone().unwrap_or_default(),
         }
     }
 
-    pub fn title(&self, lang: Language) -> String {
+    pub fn get_title(&self, lang: Language) -> String {
         match lang {
             Language::En => self.en_title.clone().unwrap_or(self.title.clone()),
             _ => self.title.clone(),
         }
     }
 
-    pub fn votes(&self) -> (i64, i64) {
+    pub fn get_votes(&self) -> (i64, i64) {
         let mut yes = 0;
         let mut no = 0;
 
@@ -94,7 +94,7 @@ impl Bill {
     }
 
     pub fn votes_percent(&self) -> (f64, f64) {
-        let (yes, no) = self.votes();
+        let (yes, no) = self.get_votes();
         let total = yes + no;
 
         let yes_percent = if total > 0 {

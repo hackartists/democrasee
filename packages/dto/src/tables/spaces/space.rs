@@ -68,7 +68,7 @@ pub struct Space {
     pub shares: i64,
 }
 
-#[derive(Debug, Clone, Eq, PartialEq, Default, ApiModel, Translate, Copy)]
+#[derive(Debug, Clone, Eq, PartialEq, Default, ApiModel, Translate, Copy, async_graphql::Enum)]
 #[cfg_attr(feature = "server", derive(schemars::JsonSchema, aide::OperationIo))]
 pub enum SpaceStatus {
     #[default]
@@ -77,7 +77,7 @@ pub enum SpaceStatus {
     Finish = 3,
 }
 
-#[derive(Debug, Clone, Eq, PartialEq, Default, ApiModel, Translate, Copy)]
+#[derive(Debug, Clone, Eq, PartialEq, Default, ApiModel, Translate, Copy, async_graphql::Enum)]
 #[cfg_attr(feature = "server", derive(schemars::JsonSchema, aide::OperationIo))]
 pub enum SpaceForm {
     #[default]
@@ -88,7 +88,7 @@ pub enum SpaceForm {
     Nft = 4,
 }
 
-#[derive(Debug, Clone, Eq, PartialEq, Default, ApiModel, Translate, Copy)]
+#[derive(Debug, Clone, Eq, PartialEq, Default, ApiModel, Translate, Copy, async_graphql::Enum)]
 #[cfg_attr(feature = "server", derive(schemars::JsonSchema, aide::OperationIo))]
 pub enum SpaceType {
     #[default]
@@ -100,7 +100,7 @@ pub enum SpaceType {
     DocReview = 4,
 }
 
-#[derive(Debug, Clone, Eq, PartialEq, Default, ApiModel, Translate, Copy)]
+#[derive(Debug, Clone, Eq, PartialEq, Default, ApiModel, Translate, Copy, async_graphql::Enum)]
 #[cfg_attr(feature = "server", derive(schemars::JsonSchema, aide::OperationIo))]
 pub enum ContentType {
     #[translate(ko = "Crypto", en = "Crypto")]
@@ -114,7 +114,9 @@ pub use bdk::prelude::*;
 
 use crate::{SpaceContract, SpaceHolder, SpaceMember};
 
-#[derive(Debug, serde::Serialize, serde::Deserialize, Clone, PartialEq, Eq)]
+#[derive(
+    Debug, serde::Serialize, serde::Deserialize, Clone, PartialEq, Eq, async_graphql::SimpleObject,
+)]
 #[cfg_attr(feature = "server", derive(schemars::JsonSchema, aide::OperationIo))]
 pub struct File {
     pub name: String,
@@ -123,7 +125,17 @@ pub struct File {
     pub url: Option<String>,
 }
 
-#[derive(Debug, serde::Serialize, serde::Deserialize, Clone, PartialEq, Eq, Translate)]
+#[derive(
+    Debug,
+    serde::Serialize,
+    serde::Deserialize,
+    Clone,
+    PartialEq,
+    Eq,
+    Translate,
+    Copy,
+    async_graphql::Enum,
+)]
 #[cfg_attr(feature = "server", derive(schemars::JsonSchema, aide::OperationIo))]
 pub enum FileExtension {
     #[translate(ko = "JPG", en = "JPG")]

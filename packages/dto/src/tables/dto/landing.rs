@@ -3,7 +3,7 @@ use bdk::prelude::*;
 use crate::{SpaceSummary, User};
 
 //TODO: query landing data
-#[api_model(base = "/v1/landings", database = skip, read_action = find_one)]
+#[api_model(base = "/v1/landings", database = skip, read_action = find_one, graphql = skip)]
 pub struct LandingData {
     pub my_spaces: Vec<SpaceSummary>,
     pub following_spaces: Vec<SpaceSummary>,

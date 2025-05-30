@@ -23,6 +23,8 @@ validator = "0.20.0"
 scraper = "0.23.1"
 aws-config = "1.5.10"
 aws-sdk-s3 = "1.74.0"
+async-graphql = "7.0.17"
+async-graphql-axum = "7.0.17"
 
 [dev-dependencies]
 rest-api = { workspace = true, features = ["test"] }

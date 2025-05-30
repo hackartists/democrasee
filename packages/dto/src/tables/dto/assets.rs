@@ -14,7 +14,16 @@ pub struct AssetPresignedUris {
 }
 
 #[derive(
-    Debug, Clone, Copy, serde::Serialize, serde::Deserialize, Default, PartialEq, Translate,
+    Debug,
+    Clone,
+    Copy,
+    Eq,
+    serde::Serialize,
+    serde::Deserialize,
+    Default,
+    PartialEq,
+    Translate,
+    async_graphql::Enum,
 )]
 #[serde(rename_all = "lowercase")]
 #[cfg_attr(feature = "server", derive(schemars::JsonSchema, aide::OperationIo))]

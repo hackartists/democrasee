@@ -47,7 +47,7 @@ pub struct HKBillWriter {
     pub status: HKBillStatus,
 }
 
-#[derive(Debug, Clone, Eq, PartialEq, Default, ApiModel, Translate, Copy)]
+#[derive(Debug, Clone, Eq, PartialEq, Default, ApiModel, Translate, Copy, async_graphql::Enum)]
 #[cfg_attr(feature = "server", derive(schemars::JsonSchema, aide::OperationIo))]
 pub enum HKBillStatus {
     #[translate(en = "Unknown", ko = "알 수 없음")]

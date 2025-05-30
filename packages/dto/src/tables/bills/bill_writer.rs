@@ -85,7 +85,7 @@ pub struct BillWriter {
     pub industry: Option<IndustryType>,
 }
 
-#[derive(Debug, Clone, Eq, PartialEq, Default, ApiModel, Translate, Copy)]
+#[derive(Debug, Clone, Eq, PartialEq, Default, ApiModel, Translate, Copy, async_graphql::Enum)]
 #[cfg_attr(feature = "server", derive(schemars::JsonSchema, aide::OperationIo))]
 pub enum IndustryType {
     #[default]
@@ -95,7 +95,7 @@ pub enum IndustryType {
     Crypto = 1,
 }
 
-#[derive(Debug, Clone, Eq, PartialEq, Default, ApiModel, Translate, Copy)]
+#[derive(Debug, Clone, Eq, PartialEq, Default, ApiModel, Translate, Copy, async_graphql::Enum)]
 #[cfg_attr(feature = "server", derive(schemars::JsonSchema, aide::OperationIo))]
 pub enum ProposerKind {
     #[translate(ko = "의원", en = "Member")]
@@ -106,7 +106,7 @@ pub enum ProposerKind {
     Other = 99,
 }
 
-#[derive(Debug, Clone, Eq, PartialEq, Default, ApiModel, Translate, Copy)]
+#[derive(Debug, Clone, Eq, PartialEq, Default, ApiModel, Translate, Copy, async_graphql::Enum)]
 #[cfg_attr(feature = "server", derive(schemars::JsonSchema, aide::OperationIo))]
 pub enum BillStatus {
     #[default]
@@ -133,7 +133,7 @@ impl BillStatus {
     }
 }
 
-#[derive(Debug, Clone, Eq, PartialEq, Default, ApiModel, Translate, Copy)]
+#[derive(Debug, Clone, Eq, PartialEq, Default, ApiModel, Translate, Copy, async_graphql::Enum)]
 #[cfg_attr(feature = "server", derive(schemars::JsonSchema, aide::OperationIo))]
 pub enum Commitee {
     #[default]

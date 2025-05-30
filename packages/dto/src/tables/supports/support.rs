@@ -1,7 +1,15 @@
 use bdk::prelude::*;
 
 #[derive(
-    Debug, Clone, Eq, PartialEq, Default, by_macros::ApiModel, dioxus_translate::Translate, Copy,
+    Debug,
+    Clone,
+    Eq,
+    PartialEq,
+    Default,
+    by_macros::ApiModel,
+    dioxus_translate::Translate,
+    Copy,
+    async_graphql::Enum,
 )]
 #[cfg_attr(feature = "server", derive(schemars::JsonSchema, aide::OperationIo))]
 pub enum Need {

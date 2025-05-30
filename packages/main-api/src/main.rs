@@ -3,7 +3,8 @@ use bdk::prelude::{by_axum::axum::Router, *};
 use by_axum::auth::set_auth_config;
 use by_axum::{auth::authorization_middleware, axum::middleware};
 use by_types::DatabaseConfig;
-use dto::*;
+use dto::{by_axum::axum::native_routing, *};
+use graphql::{get_graphql_service, graphiql};
 use sqlx::postgres::PgPoolOptions;
 use tokio::net::TcpListener;
 
@@ -13,6 +14,7 @@ mod controllers {
 }
 
 pub mod config;
+mod graphql;
 pub mod models;
 pub mod security;
 pub mod utils;
@@ -146,6 +148,10 @@ async fn api_main() -> Result<Router> {
     }
 
     let app = app
+        .native_route(
+            "/graphql",
+            native_routing::get(graphiql).post_service(get_graphql_service(pool.clone())),
+        )
         .nest("/v1", controllers::v1::route(pool.clone())?)
         .nest(
             "/m1",

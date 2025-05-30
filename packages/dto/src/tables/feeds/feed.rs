@@ -51,6 +51,7 @@ pub struct Feed {
     pub quote_feed_id: Option<i64>,
 
     #[api_model(summary, one_to_many = spaces, foreign_key = feed_id)]
+    #[graphql(skip)]
     pub spaces: Vec<Space>,
 
     #[api_model(summary, many_to_many = feed_users, foreign_table_name = users, foreign_primary_key = user_id, foreign_reference_key = feed_id, aggregator = count, unique)]
@@ -59,6 +60,7 @@ pub struct Feed {
     pub comments: i64,
     #[api_model(version = v0.1, summary, action = write_post, type = JSONB)]
     #[serde(default)]
+    #[graphql(skip)]
     pub files: Vec<File>,
     #[api_model(version = v0.1, summary)]
     #[serde(default)]
@@ -68,7 +70,7 @@ pub struct Feed {
     pub shares: i64,
 }
 
-#[derive(Debug, Clone, Eq, PartialEq, Default, ApiModel, Translate, Copy)]
+#[derive(Debug, Clone, Eq, PartialEq, Default, ApiModel, Translate, Copy, async_graphql::Enum)]
 #[cfg_attr(feature = "server", derive(schemars::JsonSchema, aide::OperationIo))]
 pub enum FeedType {
     #[default]

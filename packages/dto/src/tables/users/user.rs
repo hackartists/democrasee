@@ -50,7 +50,7 @@ pub struct User {
     pub html_contents: String,
 }
 
-#[derive(Debug, Clone, Eq, PartialEq, Default, ApiModel, Translate, Copy)]
+#[derive(Debug, Clone, Eq, PartialEq, Default, ApiModel, Translate, Copy, async_graphql::Enum)]
 #[cfg_attr(feature = "server", derive(schemars::JsonSchema, aide::OperationIo))]
 pub enum UserType {
     #[default]
@@ -60,7 +60,7 @@ pub enum UserType {
     Anonymous = 99,
 }
 
-#[derive(Debug, Clone, Eq, PartialEq, Default, ApiModel, Translate, Copy)]
+#[derive(Debug, Clone, Eq, PartialEq, Default, ApiModel, Translate, Copy, async_graphql::Enum)]
 #[cfg_attr(feature = "server", derive(schemars::JsonSchema, aide::OperationIo))]
 pub enum Membership {
     #[default]

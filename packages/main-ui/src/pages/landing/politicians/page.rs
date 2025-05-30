@@ -115,7 +115,7 @@ pub fn PoliticiansPage(#[props(default = Language::En)] lang: Language) -> Eleme
                                             }
                                             div { class: "flex max-tablet:!text-[15px] max-tablet:!flex justify-start items-center min-h-50",
                                                 p { class: "font-md text-[15px] max-tablet:!text-[15px] max-tablet:!font-md",
-                                                    {politician.name(&lang)}
+                                                    {politician.get_name(&lang)}
                                                 }
                                             }
                                         }
@@ -132,7 +132,7 @@ pub fn PoliticiansPage(#[props(default = Language::En)] lang: Language) -> Eleme
                                         div { class: "flex flex-row items-center gap-4",
                                             PartyIcon { party: politician.party_enum() }
                                             span { class: "text-white font-medium text-[15px]",
-                                                {politician.party(&lang)}
+                                                {politician.get_party(&lang)}
                                             }
                                         }
                                     }

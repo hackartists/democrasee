@@ -49,7 +49,7 @@ pub struct USBillWriter {
 
 // https://www.govinfo.gov/help/bills
 // https://www.house.gov/the-house-explained/the-legislative-process/bills-resolutions
-#[derive(Debug, Clone, Eq, PartialEq, ApiModel, Default, Translate, Copy)]
+#[derive(Debug, Clone, Eq, PartialEq, ApiModel, Default, Translate, Copy, async_graphql::Enum)]
 #[cfg_attr(feature = "server", derive(schemars::JsonSchema, aide::OperationIo))]
 pub enum USBillType {
     #[translate(en = "Unknown", ko = "알 수 없음")]
@@ -137,7 +137,7 @@ impl USBillType {
 }
 
 // https://www.congress.gov/search?q=%7B%22source%22%3A%22legislation%22%2C%22bill-status%22%3A%22committee%22%7D
-#[derive(Debug, Clone, Eq, PartialEq, Default, ApiModel, Translate, Copy)]
+#[derive(Debug, Clone, Eq, PartialEq, Default, ApiModel, Translate, Copy, async_graphql::Enum)]
 #[cfg_attr(feature = "server", derive(schemars::JsonSchema, aide::OperationIo))]
 pub enum USBillStatus {
     #[translate(en = "Unknown", ko = "알 수 없음")]
@@ -175,7 +175,7 @@ pub enum USBillStatus {
     BecameLaw = 10,
 }
 
-#[derive(Debug, Clone, Eq, PartialEq, Default, ApiModel, Translate, Copy)]
+#[derive(Debug, Clone, Eq, PartialEq, Default, ApiModel, Translate, Copy, async_graphql::Enum)]
 #[cfg_attr(feature = "server", derive(schemars::JsonSchema, aide::OperationIo))]
 pub enum Chamber {
     #[translate(en = "Unknown", ko = "알 수 없음")]
@@ -188,7 +188,7 @@ pub enum Chamber {
 }
 
 // https://www.congress.gov/browse/policyarea
-#[derive(Debug, Clone, Eq, PartialEq, Default, ApiModel, Translate, Copy)]
+#[derive(Debug, Clone, Eq, PartialEq, Default, ApiModel, Translate, Copy, async_graphql::Enum)]
 #[cfg_attr(feature = "server", derive(schemars::JsonSchema, aide::OperationIo))]
 pub enum PolicyArea {
     #[default]

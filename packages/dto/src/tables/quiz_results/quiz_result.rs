@@ -21,7 +21,15 @@ pub struct QuizResult {
     pub answers: Vec<QuizAnswer>,
 }
 
-#[derive(Debug, Clone, PartialEq, Default, serde::Serialize, serde::Deserialize)]
+#[derive(
+    Debug,
+    Clone,
+    PartialEq,
+    Default,
+    serde::Serialize,
+    serde::Deserialize,
+    async_graphql::SimpleObject,
+)]
 #[cfg_attr(feature = "server", derive(schemars::JsonSchema, aide::OperationIo))]
 pub struct SupportPolicy {
     pub presidential_candidate_id: i64,
@@ -30,14 +38,23 @@ pub struct SupportPolicy {
     pub percent: f64,
 }
 
-#[derive(Debug, Clone, Eq, PartialEq, Default, serde::Serialize, serde::Deserialize)]
+#[derive(
+    Debug,
+    Clone,
+    Eq,
+    PartialEq,
+    Default,
+    serde::Serialize,
+    serde::Deserialize,
+    async_graphql::SimpleObject,
+)]
 #[cfg_attr(feature = "server", derive(schemars::JsonSchema, aide::OperationIo))]
 pub struct QuizAnswer {
     pub quiz_id: i64,
     pub answer: QuizOptions,
 }
 
-#[derive(Debug, Clone, Eq, PartialEq, Default, ApiModel, Translate, Copy)]
+#[derive(Debug, Clone, Eq, PartialEq, Default, ApiModel, Translate, Copy, async_graphql::Enum)]
 #[cfg_attr(feature = "server", derive(schemars::JsonSchema, aide::OperationIo))]
 pub enum QuizOptions {
     #[default]

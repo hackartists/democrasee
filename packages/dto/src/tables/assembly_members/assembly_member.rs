@@ -11,7 +11,7 @@ use validator::ValidationError;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Eq, PartialEq, Default, Translate, ApiModel, Copy)]
+#[derive(Debug, Clone, Eq, PartialEq, Default, Translate, ApiModel, Copy, async_graphql::Enum)]
 #[cfg_attr(feature = "server", derive(JsonSchema, aide::OperationIo))]
 pub enum CryptoStance {
     #[translate(en = "All Stance")]
@@ -29,7 +29,7 @@ pub enum CryptoStance {
     StronglySupportive = 4,
 }
 
-#[derive(Debug, Clone, Eq, PartialEq, Default, Translate, ApiModel, Copy)]
+#[derive(Debug, Clone, Eq, PartialEq, Default, Translate, ApiModel, Copy, async_graphql::Enum)]
 #[cfg_attr(feature = "server", derive(JsonSchema, aide::OperationIo))]
 pub enum Party {
     #[default]
@@ -54,7 +54,15 @@ pub enum Party {
 }
 
 #[derive(
-    Debug, Clone, Eq, PartialEq, Default, by_macros::ApiModel, dioxus_translate::Translate, Copy,
+    Debug,
+    Clone,
+    Eq,
+    PartialEq,
+    Default,
+    by_macros::ApiModel,
+    dioxus_translate::Translate,
+    Copy,
+    async_graphql::Enum,
 )]
 #[cfg_attr(feature = "server", derive(schemars::JsonSchema, aide::OperationIo))]
 pub enum AssemblyMemberSorter {
@@ -70,7 +78,15 @@ pub enum AssemblyMemberSorter {
 }
 
 #[derive(
-    Debug, Clone, Eq, PartialEq, Default, by_macros::ApiModel, dioxus_translate::Translate, Copy,
+    Debug,
+    Clone,
+    Eq,
+    PartialEq,
+    Default,
+    by_macros::ApiModel,
+    dioxus_translate::Translate,
+    Copy,
+    async_graphql::Enum,
 )]
 #[cfg_attr(feature = "server", derive(schemars::JsonSchema, aide::OperationIo))]
 pub enum SortOrder {
@@ -130,7 +146,7 @@ impl AssemblyMemberSummary {
         }
     }
 
-    pub fn name(&self, lang: &Language) -> &str {
+    pub fn get_name(&self, lang: &Language) -> &str {
         match lang {
             Language::En => &self.en_name,
             _ => &self.name,
@@ -141,7 +157,7 @@ impl AssemblyMemberSummary {
         Party::from_str(&self.party).unwrap_or_default()
     }
 
-    pub fn party(&self, lang: &Language) -> &str {
+    pub fn get_party(&self, lang: &Language) -> &str {
         Party::from_str(&self.party)
             .unwrap_or_default()
             .translate(lang)
@@ -160,7 +176,7 @@ impl AssemblyMember {
         }
     }
 
-    pub fn name(&self, lang: &Language) -> &str {
+    pub fn get_name(&self, lang: &Language) -> &str {
         match lang {
             Language::En => &self.en_name,
             _ => &self.name,
@@ -171,7 +187,7 @@ impl AssemblyMember {
         Party::from_str(&self.party).unwrap_or_default()
     }
 
-    pub fn party(&self, lang: &Language) -> &str {
+    pub fn get_party(&self, lang: &Language) -> &str {
         Party::from_str(&self.party)
             .unwrap_or_default()
             .translate(lang)

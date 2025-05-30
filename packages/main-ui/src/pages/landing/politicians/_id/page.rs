@@ -18,7 +18,7 @@ pub fn PoliticiansByIdPage(
 
     rsx! {
         by_components::meta::MetaPage {
-            title: p.name(&lang),
+            title: p.get_name(&lang),
             description: tr.description,
             image: p.image_url.clone(),
         }
@@ -30,13 +30,13 @@ pub fn PoliticiansByIdPage(
                 PoliticianHeader {
                     lang,
                     image: p.image_url.clone(),
-                    name: p.name(&lang),
+                    name: p.get_name(&lang),
                     party: p.party_enum(),
                     stance: p.stance,
                     email: p.email.clone().unwrap_or_default(),
                     description: tr.description,
                 }
-                PoliticianActivities { lang, name: p.name(&lang), bills: p.bills }
+                PoliticianActivities { lang, name: p.get_name(&lang), bills: p.bills }
             } // end of this page
             FooterWithSocial { lang }
         }

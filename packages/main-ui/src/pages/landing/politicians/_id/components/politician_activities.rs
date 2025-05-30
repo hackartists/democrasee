@@ -106,7 +106,9 @@ pub fn BillCard(
                 div {
                     id: "bill-card-header-{bill.id}",
                     class: "w-full flex flex-col gap-10 items-start justify-start",
-                    h2 { class: "text-text-primary text-[20px]/25 font-medium", {bill.title(lang)} }
+                    h2 { class: "text-text-primary text-[20px]/25 font-medium",
+                        {bill.get_title(lang)}
+                    }
                 }
             }
 
