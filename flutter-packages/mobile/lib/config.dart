@@ -10,10 +10,10 @@ class Config {
   );
   static const apiEndpoint = String.fromEnvironment(
     'API_ENDPOINT',
-    defaultValue: 'https://api.dev.ratel.foundation',
+    defaultValue: 'http://hackartist.iptime.org:3000',
   );
   static const signDomain = String.fromEnvironment(
     'SIGN_DOMAIN',
-    defaultValue: 'https://api.dev.ratel.foundation',
+    defaultValue: 'dev.ratel.foundation',
   );
 }
