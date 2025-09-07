@@ -11,13 +11,14 @@ use by_axum::{
 use dto::*;
 use tracing::instrument;
 
-use crate::utils::email::send_email;
+use crate::{config, utils::email::send_email};
 
 #[derive(Clone, Debug)]
 pub struct VerificationController {
     repo: VerificationRepository,
     pool: sqlx::Pool<sqlx::Postgres>,
     verification_expiration: i64,
+    enable_bypass: bool,
 }
 
 impl VerificationController {
@@ -27,6 +28,7 @@ impl VerificationController {
         let ctrl = VerificationController {
             pool,
             repo,
+            enable_bypass: config::get().env != "prod",
             verification_expiration: 60 * 30, // 30 minutes
         };
 
@@ -60,6 +62,14 @@ impl VerificationController {
             .duration_since(SystemTime::UNIX_EPOCH)
             .unwrap()
             .as_secs() as i64;
+
+        if self.enable_bypass && value == "000000" {
+            return Ok(Json(Verification {
+                id: 0,
+                expired_at: now + self.verification_expiration,
+                ..Verification::default()
+            }));
+        }
 
         let code = Verification::query_builder()
             .email_equals(email)
