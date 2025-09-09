@@ -83,6 +83,7 @@ services:
       - ./.build/node_modules:/app/node_modules
       - ./.build/web_node_modules:/app/ts-packages/web/node_modules
       - ./.build/pnpm-store:/app/.pnpm-store
+      - ./.build/next:/app/ts-packages/.next
       - .:/app
     working_dir: /app
     command: ["bash", "scripts/web-entrypoint.sh"]

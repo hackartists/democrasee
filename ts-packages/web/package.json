@@ -12,11 +12,15 @@
     "test:e2e": "playwright test",
     "test:e2e:debug": "playwright test --debug",
     "test:e2e:ui": "playwright test --ui",
-    "test:e2e:report": "playwright show-report"
+    "test:e2e:report": "playwright show-report",
+    "build:lambda": "next build && cp lambda.js .next/standalone/ts-packages/web && cp -r .next/static .next/standalone/.next/ts-packages/web/.next",
+    "package:lambda": "cd .next/standalone && zip -r ../../dist/web-lambda.zip . && cd ../..",
+    "prepare:lambda": "mkdir -p dist && npm run build:lambda && npm run package:lambda"
   },
   "dependencies": {
     "@apollo/client": "^3.13.8",
     "@apollo/client-integration-nextjs": "^0.12.2",
+    "@codegenie/serverless-express": "^4.17.0",
     "@dfinity/agent": "^2.4.1",
     "@dfinity/identity": "^2.4.1",
     "@dnd-kit/core": "^6.1.0",

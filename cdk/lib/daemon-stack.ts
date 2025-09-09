@@ -13,20 +13,23 @@ import { RegionalServiceStack } from "./regional-service-stack";
 
 export interface DaemonStackProps {
   commit: string;
-  vpc: ec2.IVpc;
   cluster: ecs.ICluster;
-  listener: elbv2.ApplicationListener;
-  taskExecutionRole: iam.IRole;
+  vpc: ec2.IVpc;
 }
 
 export class DaemonStack {
   constructor(scope: RegionalServiceStack, props: DaemonStackProps) {
-    const { vpc, cluster, listener, taskExecutionRole } = props;
-    const healthPath = "/version";
+    const { vpc, cluster } = props;
     const fetcherContainerName = "FetcherContainer";
     const fetcherRepoName = "ratel/fetcher";
     const telegramBotRepoName = "ratel/telegram-bot";
     const telegramBotContainerName = "TelegramBotContainer";
+
+    const sg = new ec2.SecurityGroup(scope, "DaemonTaskSg", {
+      vpc,
+      description: "Egress-only; no inbound rules",
+      allowAllOutbound: true,
+    });
 
     const taskDefinition = new ecs.TaskDefinition(
       scope,
@@ -35,7 +38,6 @@ export class DaemonStack {
         compatibility: ecs.Compatibility.FARGATE,
         cpu: "256",
         memoryMiB: "512",
-        executionRole: taskExecutionRole,
       },
     );
 
@@ -52,11 +54,6 @@ export class DaemonStack {
       logging: new ecs.AwsLogDriver({
         streamPrefix: `ratel-${process.env.ENV}-fetcher`,
       }),
-    });
-
-    fetcherContainer.addPortMappings({
-      containerPort: 4000,
-      protocol: ecs.Protocol.TCP,
     });
 
     const telegramBotRepository = Repository.fromRepositoryName(
@@ -77,48 +74,57 @@ export class DaemonStack {
       },
     );
 
-    telegramBotContainer.addPortMappings({
-      containerPort: 3000,
-      protocol: ecs.Protocol.TCP,
-    });
-
     const fargate = new ecs.FargateService(scope, "DaemonService", {
       cluster,
       taskDefinition,
       desiredCount: 1,
       maxHealthyPercent: 100,
       minHealthyPercent: 0,
+      securityGroups: [sg],
+      vpcSubnets: { subnetType: ec2.SubnetType.PUBLIC },
+      assignPublicIp: true,
+      circuitBreaker: { rollback: true },
     });
 
-    const telegramBotTargetGroup = new elbv2.ApplicationTargetGroup(
-      scope,
-      "TelegramBotTargetGroup",
-      {
-        targets: [
-          fargate.loadBalancerTarget({
-            containerName: telegramBotContainerName,
-            containerPort: 3000,
-          }),
-        ],
-        protocol: elbv2.ApplicationProtocol.HTTP,
-        vpc,
-        port: 3000,
-        deregistrationDelay: Duration.seconds(30),
-        healthCheck: {
-          path: healthPath,
-          interval: Duration.seconds(30),
-          timeout: Duration.seconds(5),
-          healthyHttpCodes: "200",
-          healthyThresholdCount: 2,
-          unhealthyThresholdCount: 3,
-        },
-      },
-    );
+    // fetcherContainer.addPortMappings({
+    //   containerPort: 4000,
+    //   protocol: ecs.Protocol.TCP,
+    // });
 
-    listener.addTargetGroups("TgRuleTelegramBotHost", {
-      priority: 1,
-      conditions: [elbv2.ListenerCondition.pathPatterns(["/notify"])],
-      targetGroups: [telegramBotTargetGroup],
-    });
+    // telegramBotContainer.addPortMappings({
+    //   containerPort: 3000,
+    //   protocol: ecs.Protocol.TCP,
+    // });
+
+    // const telegramBotTargetGroup = new elbv2.ApplicationTargetGroup(
+    //   scope,
+    //   "TelegramBotTargetGroup",
+    //   {
+    //     targets: [
+    //       fargate.loadBalancerTarget({
+    //         containerName: telegramBotContainerName,
+    //         containerPort: 3000,
+    //       }),
+    //     ],
+    //     protocol: elbv2.ApplicationProtocol.HTTP,
+    //     vpc,
+    //     port: 3000,
+    //     deregistrationDelay: Duration.seconds(30),
+    //     healthCheck: {
+    //       path: healthPath,
+    //       interval: Duration.seconds(30),
+    //       timeout: Duration.seconds(5),
+    //       healthyHttpCodes: "200",
+    //       healthyThresholdCount: 2,
+    //       unhealthyThresholdCount: 3,
+    //     },
+    //   },
+    // );
+
+    // listener.addTargetGroups("TgRuleTelegramBotHost", {
+    //   priority: 1,
+    //   conditions: [elbv2.ListenerCondition.pathPatterns(["/notify"])],
+    //   targetGroups: [telegramBotTargetGroup],
+    // });
   }
 }

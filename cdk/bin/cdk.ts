@@ -7,23 +7,30 @@ const app = new App();
 const stackName = process.env.STACK;
 
 const env = process.env.ENV || "dev";
-// Common host
 const host = process.env.DOMAIN || "dev.ratel.foundation";
+const webLatencyDomain = `w.${host}`;
+const apiLatencyDomain = `a.${host}`;
 
-// --- Regional stacks (ALB + Fargate) ---
-const kr = new RegionalServiceStack(app, `ratel-${env}-svc-ap-northeast-2`, {
-  env: {
-    account: process.env.CDK_DEFAULT_ACCOUNT,
-    region: "ap-northeast-2",
+const apStack = new RegionalServiceStack(
+  app,
+  `ratel-${env}-svc-ap-northeast-2`,
+  {
+    env: {
+      account: process.env.CDK_DEFAULT_ACCOUNT,
+      region: "ap-northeast-2",
+    },
+    fullDomainName: host,
+    healthCheckPath: "/version",
+    commit: process.env.COMMIT!,
+    pghost: process.env.PGHOST_AP!,
+    enableDaemon: true,
+
+    webLatencyDomain,
+    apiLatencyDomain,
   },
-  fullDomainName: host,
-  healthCheckPath: "/version",
-  commit: process.env.COMMIT!,
-  pghost: process.env.PGHOST_AP!,
-  enableDaemon: true,
-});
+);
 
-const eu = new RegionalServiceStack(app, `ratel-${env}-svc-eu-central-1`, {
+const euStack = new RegionalServiceStack(app, `ratel-${env}-svc-eu-central-1`, {
   env: {
     account: process.env.CDK_DEFAULT_ACCOUNT,
     region: "eu-central-1",
@@ -32,9 +39,12 @@ const eu = new RegionalServiceStack(app, `ratel-${env}-svc-eu-central-1`, {
   healthCheckPath: "/version",
   commit: process.env.COMMIT!,
   pghost: process.env.PGHOST_EU!,
+
+  webLatencyDomain,
+  apiLatencyDomain,
 });
 
-const us = new RegionalServiceStack(app, `ratel-${env}-svc-us-east-1`, {
+const usStack = new RegionalServiceStack(app, `ratel-${env}-svc-us-east-1`, {
   env: {
     account: process.env.CDK_DEFAULT_ACCOUNT,
     region: "us-east-1",
@@ -43,10 +53,11 @@ const us = new RegionalServiceStack(app, `ratel-${env}-svc-us-east-1`, {
   healthCheckPath: "/version",
   commit: process.env.COMMIT!,
   pghost: process.env.PGHOST_US!,
+
+  webLatencyDomain,
+  apiLatencyDomain,
 });
 
-// --- Global Accelerator + Route53 stack ---
-// crossRegionReferences=true in all stacks lets us pass ALBs between regions
 new GlobalAccelStack(app, "GlobalAccel", {
   stackName,
   env: {
@@ -54,9 +65,14 @@ new GlobalAccelStack(app, "GlobalAccel", {
     region: "us-east-1",
   },
   fullDomainName: host,
-  euAlb: eu.alb,
-  usAlb: us.alb,
-  krAlb: kr.alb,
+
+  euStack,
+  usStack,
+  apStack,
+
+  webLatencyDomain,
+  apiLatencyDomain,
+
   stage: env,
   commit: process.env.COMMIT!,
 });

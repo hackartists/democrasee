@@ -48,8 +48,20 @@ BUILD_ENV ?= ENV=$(ENV) RUST_LOG=$(RUST_LOG) NODE=$(NODE) TABLE_NAME=$(TABLE_NAM
 run:
 	$(BUILD_ENV) cargo watch -x run -w src -w $(PWD)/../dto -w $(PWD)/../../deps/rust-sdk
 
+# build:
+# 	$(BUILD_ENV) cargo build --release -p $(SERVICE) --features lambda
+# 	mkdir -p $(WORKSPACE_ROOT)/.build/$(SERVICE)
+# 	cp $(CARGO_TARGET_DIR)/release/$(SERVICE) $(WORKSPACE_ROOT)/.build/$(SERVICE)/bootstrap
+
 build:
-	$(BUILD_ENV) cargo build --release -p $(SERVICE) --features lambda
+	docker run --rm \
+		-v $(WORKSPACE_ROOT):/workspace \
+		-w /workspace/packages/$(SERVICE) \
+		public.ecr.aws/sam/build-provided.al2023 \
+		bash -c 'dnf update -y && dnf install -y gcc openssl-devel pkg-config && \
+		curl --proto "=https" --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y && \
+		source ~/.cargo/env && \
+		$(BUILD_ENV) CARGO_TARGET_DIR=/workspace/packages/$(SERVICE)/target cargo build --release -p $(SERVICE) --features lambda'
 	mkdir -p $(WORKSPACE_ROOT)/.build/$(SERVICE)
 	cp $(CARGO_TARGET_DIR)/release/$(SERVICE) $(WORKSPACE_ROOT)/.build/$(SERVICE)/bootstrap
 

@@ -24,6 +24,10 @@ run: node_module
 
 build: node_module
 	$(BUILD_ENV) pnpm build
+	cp lambda.js .next/standalone/ts-packages/web/
+	cp -r .next/static .next/standalone/ts-packages/web/.next/
+	cp -r public .next/standalone/ts-packages/web/
+	zip -r .next/web-lambda.zip .next/standalone
 
 docker.build:
 	docker build -t $(ECR_NAME):$(COMMIT) --no-cache $(DOCKER_FLAGS) -f Dockerfile ../..
