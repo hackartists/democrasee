@@ -50,8 +50,7 @@ export class GlobalAccelStack extends Stack {
     });
 
     const origin = new origins.HttpOrigin(webLatencyDomain);
-
-    const apiOrigin = new origins.HttpOrigin(apiLatencyDomain);
+    const apiOrigin = new origins.HttpOrigin(apiDomain);
 
     // 1) S3 for static assets
     const staticBucket = new s3.Bucket(this, "NextStaticBucket", {
@@ -142,27 +141,12 @@ export class GlobalAccelStack extends Stack {
       ),
     });
 
-    new route53.ARecord(this, "ApiAliasV4", {
-      zone,
-      recordName: apiDomain.replace(`.${baseDomain}`, ""), // e.g., 'dev'
-      target: route53.RecordTarget.fromAlias(
-        new targets.CloudFrontTarget(this.distribution),
-      ),
-    });
-    new route53.AaaaRecord(this, "ApiAliasV6", {
-      zone,
-      recordName: apiDomain.replace(`.${baseDomain}`, ""),
-      target: route53.RecordTarget.fromAlias(
-        new targets.CloudFrontTarget(this.distribution),
-      ),
-    });
-
     new s3deploy.BucketDeployment(this, "NextStaticDeployStatic", {
       destinationBucket: staticBucket,
       distribution: this.distribution,
       distributionPaths: ["/_next/static/*"],
       sources: [
-        s3deploy.Source.asset(".next/static", {
+        s3deploy.Source.asset(".build/web/static", {
           assetHash: commit,
           assetHashType: cdk.AssetHashType.CUSTOM,
         }),
@@ -175,7 +159,7 @@ export class GlobalAccelStack extends Stack {
       distribution: this.distribution,
       distributionPaths: ["/*"],
       sources: [
-        s3deploy.Source.asset("public", {
+        s3deploy.Source.asset(".build/web/public", {
           assetHash: commit,
           assetHashType: cdk.AssetHashType.CUSTOM,
         }),

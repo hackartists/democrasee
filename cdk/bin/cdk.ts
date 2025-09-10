@@ -9,7 +9,7 @@ const stackName = process.env.STACK;
 const env = process.env.ENV || "dev";
 const host = process.env.DOMAIN || "dev.ratel.foundation";
 const webLatencyDomain = `w.${host}`;
-const apiLatencyDomain = `a.${host}`;
+const apiLatencyDomain = `api.${host}`;
 
 const apStack = new RegionalServiceStack(
   app,

@@ -66,25 +66,15 @@ build: clean
 deps/rust-sdk/cdk/node_modules:
 	cd deps/rust-sdk/cdk && npm install
 
-cdk/.next/static:
-	mkdir -p cdk/.next
-	cp -r ts-packages/web/.next/static cdk/.next/static
-
-cdk/.next:
-	docker create --name web-container $(ECR_NAME):$(COMMIT)
-	docker cp web-container:/app/ts-packages/web/.next cdk/.next
-	docker rm -f web-container
-
-cdk/public:
-	cp -r ts-packages/web/public cdk/public
-
-cdk/.build/web/lambda.zip:
-	mkdir -p cdk/.build/web
-	cp ts-packages/web/.next/web-lambda.zip cdk/.build/web/lambda.zip
-
 cdk/.build/main-api:
 	mkdir -p cdk/.build/main-api
 	cp .build/main-api/bootstrap cdk/.build/main-api/bootstrap
+
+cdk/.build/web:
+	mkdir -p cdk/.build/web
+	cp ts-packages/web/.next/lambda.zip cdk/.build/web/lambda.zip
+	cp -r ts-packages/web/public cdk/.build/web/public
+	cp -r ts-packages/web/.next/static cdk/.build/web/static
 
 cdk-deploy-v2:
 	cd cdk && npm i

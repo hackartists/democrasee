@@ -14,10 +14,10 @@ import * as cdk from "aws-cdk-lib";
 import * as route53 from "aws-cdk-lib/aws-route53";
 import * as acm from "aws-cdk-lib/aws-certificatemanager";
 import * as apigw from "aws-cdk-lib/aws-apigateway";
+import { NodejsFunction } from "aws-cdk-lib/aws-lambda-nodejs";
 
 export interface WebStackProps {
   prefix: string;
-  regionalDomain: string;
   latencyDomain: string;
 }
 
@@ -26,20 +26,31 @@ export class WebStack {
   public readonly latencyDomain: string;
 
   constructor(scope: RegionalServiceStack, props: WebStackProps) {
-    const { prefix, regionalDomain, latencyDomain } = props;
+    const { prefix, latencyDomain } = props;
     const { zone, region } = scope;
 
     const zipFilePath = ".build/web/lambda.zip";
+    const lwaLayer = lambda.LayerVersion.fromLayerVersionArn(
+      scope,
+      `${prefix}LambdaAdapterLayerX86`,
+      `arn:aws:lambda:${region}:753240598075:layer:LambdaAdapterLayerX86:25`,
+    );
 
     const func = new lambda.Function(scope, `${prefix}Function`, {
       runtime: lambda.Runtime.NODEJS_22_X,
       code: lambda.Code.fromAsset(zipFilePath),
-      handler: "ts-packages/web/lambda.handler",
+      handler: "run.sh",
       environment: {
         NODE_ENV: "production",
+        AWS_LAMBDA_EXEC_WRAPPER: "/opt/bootstrap",
+        AWS_LWA_ENABLE_COMPRESSION: "true",
+        RUST_LOG: "info",
+        PORT: "8000",
+        AWS_LWA_PORT: "8000",
       },
-      memorySize: 512,
+      memorySize: 1024,
       timeout: cdk.Duration.seconds(30),
+      layers: [lwaLayer],
     });
 
     const api = new apigateway.LambdaRestApi(scope, `${prefix}ApiGateway`, {
@@ -48,12 +59,12 @@ export class WebStack {
     });
 
     const cert = new acm.Certificate(scope, `${prefix}Cert`, {
-      domainName: regionalDomain,
+      domainName: latencyDomain,
       validation: acm.CertificateValidation.fromDns(zone),
     });
 
     const domain = new apigw.DomainName(scope, `${prefix}Domain`, {
-      domainName: regionalDomain,
+      domainName: latencyDomain,
       certificate: cert,
       endpointType: apigw.EndpointType.REGIONAL,
       securityPolicy: apigw.SecurityPolicy.TLS_1_2,

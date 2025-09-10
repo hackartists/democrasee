@@ -22,12 +22,13 @@ node_module:
 run: node_module
 	VERSION=$(VERSION) PORT=$(PORT) pnpm dev
 
-build: node_module
+build: clean node_module
 	$(BUILD_ENV) pnpm build
 	cp lambda.js .next/standalone/ts-packages/web/
+	cp run.sh .next/standalone/run.sh
 	cp -r .next/static .next/standalone/ts-packages/web/.next/
 	cp -r public .next/standalone/ts-packages/web/
-	zip -r .next/web-lambda.zip .next/standalone
+	cd .next/standalone && zip -r ../../.next/lambda.zip .
 
 docker.build:
 	docker build -t $(ECR_NAME):$(COMMIT) --no-cache $(DOCKER_FLAGS) -f Dockerfile ../..
@@ -37,3 +38,6 @@ docker.push:
 
 docker.login:
 	aws ecr get-login-password --region $(AWS_REGION) | docker login --username AWS --password-stdin $(AWS_ACCOUNT_ID).dkr.ecr.$(AWS_REGION).amazonaws.com
+
+clean:
+	sudo rm -rf .next

@@ -45,12 +45,11 @@ export class RegionalServiceStack extends Stack {
   constructor(scope: Construct, id: string, props: RegionalServiceStackProps) {
     super(scope, id, { ...props, crossRegionReferences: true });
 
-    const { webLatencyDomain, apiLatencyDomain } = props;
+    const { webLatencyDomain, apiLatencyDomain, pghost } = props;
 
     const domain = props.fullDomainName;
     const region = this.region;
     this.regionalWebDomain = `web.${region}.${domain}`;
-    this.regionalApiDomain = `api.${region}.${domain}`;
     const baseDomain = "ratel.foundation";
 
     const vpc = ec2.Vpc.fromLookup(this, "DefaultVpc", { isDefault: true });
@@ -72,13 +71,12 @@ export class RegionalServiceStack extends Stack {
 
     this.webstack = new WebStack(this, {
       prefix: "Web",
-      regionalDomain: this.regionalWebDomain,
       latencyDomain: webLatencyDomain,
     });
     this.mainApiStack = new MainApiStack(this, {
       prefix: "Api",
-      regionalDomain: this.regionalApiDomain,
       latencyDomain: apiLatencyDomain,
+      pghost,
     });
   }
 }

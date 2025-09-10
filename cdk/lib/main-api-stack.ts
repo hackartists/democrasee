@@ -14,15 +14,13 @@ import * as apigw from "aws-cdk-lib/aws-apigateway";
 
 export interface MainApiStackProps {
   prefix: string;
-  regionalDomain: string;
   latencyDomain: string;
+  pghost: string;
 }
 
 export class MainApiStack {
-  public readonly latencyDomain: string;
-
   constructor(scope: RegionalServiceStack, props: MainApiStackProps) {
-    const { prefix, regionalDomain, latencyDomain } = props;
+    const { prefix, latencyDomain, pghost } = props;
     const { zone, region } = scope;
 
     const codePath = ".build/main-api";
@@ -33,8 +31,9 @@ export class MainApiStack {
       handler: "bootstrap",
       environment: {
         NO_COLOR: "true",
+        PGHOST: pghost,
       },
-      memorySize: 512,
+      memorySize: 256,
       timeout: cdk.Duration.seconds(30),
     });
 
@@ -44,15 +43,13 @@ export class MainApiStack {
     });
 
     const cert = new acm.Certificate(scope, `${prefix}Cert`, {
-      domainName: regionalDomain,
+      domainName: latencyDomain,
       validation: acm.CertificateValidation.fromDns(zone),
     });
 
     const domain = new apigw.DomainName(scope, `${prefix}Domain`, {
-      domainName: regionalDomain,
+      domainName: latencyDomain,
       certificate: cert,
-      endpointType: apigw.EndpointType.REGIONAL,
-      securityPolicy: apigw.SecurityPolicy.TLS_1_2,
     });
 
     new apigw.BasePathMapping(scope, `${prefix}Mapping`, {
@@ -87,7 +84,5 @@ export class MainApiStack {
         evaluateTargetHealth: true,
       },
     });
-
-    this.latencyDomain = latencyDomain;
   }
 }
