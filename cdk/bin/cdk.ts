@@ -7,9 +7,18 @@ const app = new App();
 const stackName = process.env.STACK;
 
 const env = process.env.ENV || "dev";
-const host = process.env.DOMAIN || "dev.ratel.foundation";
-const webLatencyDomain = `w.${host}`;
+const host = process.env.DOMAIN || "dev2.ratel.foundation";
+const webLatencyDomain = host; // Use the main domain directly
 const apiLatencyDomain = `api.${host}`;
+
+const { cert } = new GlobalAccelStack(app, "GlobalAccel", {
+  stackName,
+  env: {
+    account: process.env.CDK_DEFAULT_ACCOUNT,
+    region: "us-east-1",
+  },
+  fullDomainName: host,
+});
 
 const apStack = new RegionalServiceStack(
   app,
@@ -27,6 +36,7 @@ const apStack = new RegionalServiceStack(
 
     webLatencyDomain,
     apiLatencyDomain,
+    cert,
   },
 );
 
@@ -42,6 +52,7 @@ const euStack = new RegionalServiceStack(app, `ratel-${env}-svc-eu-central-1`, {
 
   webLatencyDomain,
   apiLatencyDomain,
+  cert,
 });
 
 const usStack = new RegionalServiceStack(app, `ratel-${env}-svc-us-east-1`, {
@@ -56,23 +67,5 @@ const usStack = new RegionalServiceStack(app, `ratel-${env}-svc-us-east-1`, {
 
   webLatencyDomain,
   apiLatencyDomain,
-});
-
-new GlobalAccelStack(app, "GlobalAccel", {
-  stackName,
-  env: {
-    account: process.env.CDK_DEFAULT_ACCOUNT,
-    region: "us-east-1",
-  },
-  fullDomainName: host,
-
-  euStack,
-  usStack,
-  apStack,
-
-  webLatencyDomain,
-  apiLatencyDomain,
-
-  stage: env,
-  commit: process.env.COMMIT!,
+  cert,
 });

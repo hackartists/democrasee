@@ -33,23 +33,21 @@ export interface RegionalServiceStackProps extends StackProps {
 
   webLatencyDomain: string;
   apiLatencyDomain: string;
+
+  cert: acm.Certificate;
 }
 
 export class RegionalServiceStack extends Stack {
   public readonly webstack: WebStack;
   public readonly mainApiStack: MainApiStack;
   public readonly zone: route53.IHostedZone;
-  public readonly regionalWebDomain: string;
-  public readonly regionalApiDomain: string;
 
   constructor(scope: Construct, id: string, props: RegionalServiceStackProps) {
     super(scope, id, { ...props, crossRegionReferences: true });
 
-    const { webLatencyDomain, apiLatencyDomain, pghost } = props;
+    const { webLatencyDomain, apiLatencyDomain, pghost, cert } = props;
 
     const domain = props.fullDomainName;
-    const region = this.region;
-    this.regionalWebDomain = `web.${region}.${domain}`;
     const baseDomain = "ratel.foundation";
 
     const vpc = ec2.Vpc.fromLookup(this, "DefaultVpc", { isDefault: true });
@@ -72,11 +70,17 @@ export class RegionalServiceStack extends Stack {
     this.webstack = new WebStack(this, {
       prefix: "Web",
       latencyDomain: webLatencyDomain,
+      githubRepo: process.env.GITHUB_REPO || "https://github.com/biyard/ratel",
+      githubBranch: process.env.GITHUB_BRANCH || "dev",
+      githubAccessToken: process.env.GITHUB_ACCESS_TOKEN!,
+      domain,
+      cert,
     });
     this.mainApiStack = new MainApiStack(this, {
       prefix: "Api",
       latencyDomain: apiLatencyDomain,
       pghost,
+      cert,
     });
   }
 }

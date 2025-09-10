@@ -16,11 +16,13 @@ export interface MainApiStackProps {
   prefix: string;
   latencyDomain: string;
   pghost: string;
+
+  cert: acm.Certificate;
 }
 
 export class MainApiStack {
   constructor(scope: RegionalServiceStack, props: MainApiStackProps) {
-    const { prefix, latencyDomain, pghost } = props;
+    const { prefix, latencyDomain, pghost, cert } = props;
     const { zone, region } = scope;
 
     const codePath = ".build/main-api";
@@ -40,11 +42,6 @@ export class MainApiStack {
     const api = new apigateway.LambdaRestApi(scope, `${prefix}ApiGateway`, {
       handler: func,
       proxy: true,
-    });
-
-    const cert = new acm.Certificate(scope, `${prefix}Cert`, {
-      domainName: latencyDomain,
-      validation: acm.CertificateValidation.fromDns(zone),
     });
 
     const domain = new apigw.DomainName(scope, `${prefix}Domain`, {
