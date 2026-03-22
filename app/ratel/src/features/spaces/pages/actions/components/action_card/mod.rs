@@ -126,7 +126,9 @@ pub fn ActionCard(action: SpaceActionSummary, space_id: SpacePartition) -> Eleme
             }
 
             // Title
-            p { class: "w-full font-semibold text-[1.125rem]/[1.75rem] truncate text-text-primary",
+            p {
+                class: "w-full font-semibold text-[1.125rem]/[1.75rem] truncate",
+                class: if action.title.is_empty() { "text-foreground-muted italic" } else { "text-text-primary" },
                 {title}
             }
 

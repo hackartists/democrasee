@@ -92,13 +92,16 @@ export async function goto(page, url) {
   await Promise.all([
     page.waitForResponse(
       (resp) =>
-        resp.url().includes("app-shell_bg.wasm") && resp.status() === 200,
+        resp.url().includes("app-shell_bg.wasm") &&
+        (resp.status() === 200 || resp.status() === 304),
+      { timeout: CONFIGS.TIMEOUT },
     ),
     page.goto(url),
   ]);
   await page.waitForLoadState("load");
-  // It's for waiting for the Dioxus WASM to hydrate and the interpreter to be initialised.
-  await page.waitForTimeout(500);
+  // Wait until network activity has settled to approximate Dioxus WASM hydration
+  // and interpreter initialization, using a configurable timeout instead of a fixed sleep.
+  await page.waitForLoadState("networkidle", { timeout: CONFIGS.TIMEOUT });
 }
 
 export async function getEditor(page) {
