@@ -133,7 +133,9 @@ pub fn SpaceTimeline() -> Element {
                             }
                         }
                     }
-                    {v.more_element()}
+                    div { class: "w-px min-w-px shrink-0",
+                        {v.more_element()}
+                    }
                 }
                 if can_scroll_right() {
                     button {
@@ -164,5 +166,9 @@ const CHECK_SCROLL_JS: &str = r#"
 
 const SCROLL_RIGHT_JS: &str = r#"
     const el = document.querySelector('[aria-label="My Spaces section"] .scrollbar-none');
-    if (el) el.scrollBy({ left: 340, behavior: 'smooth' });
+    if (el) {
+        const firstChild = el.firstElementChild;
+        const scrollAmount = firstChild && firstChild.clientWidth ? firstChild.clientWidth : el.clientWidth;
+        el.scrollBy({ left: scrollAmount, behavior: 'smooth' });
+    }
 "#;
