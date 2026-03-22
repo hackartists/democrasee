@@ -265,6 +265,27 @@ pub fn translate_derive(input: TokenStream) -> TokenStream {
             }
         }
 
+        // Emit a compile-time error if `#[translate(from)]` is used on a variant
+        // that is not a single-field tuple (the only shape that supports delegation).
+        if is_from && tuple_len != 1 {
+            let msg = format!(
+                "`#[translate(from)]` can only be used on single-field tuple variants, \
+                 but `{}::{}` has {} field(s)",
+                enum_name,
+                variant_ident,
+                if field_names.is_empty() && tuple_len == 0 {
+                    0
+                } else if tuple_len > 0 {
+                    tuple_len
+                } else {
+                    field_names.len()
+                }
+            );
+            return syn::Error::new_spanned(variant_ident, msg)
+                .to_compile_error()
+                .into();
+        }
+
         let en_str = syn::LitStr::new(&en_translation.borrow(), proc_macro2::Span::call_site());
         #[cfg(feature = "ko")]
         let ko_str = syn::LitStr::new(&ko_translation.borrow(), proc_macro2::Span::call_site());
