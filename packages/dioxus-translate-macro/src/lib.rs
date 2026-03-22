@@ -296,7 +296,15 @@ pub fn translate_derive(input: TokenStream) -> TokenStream {
 
         // For `#[translate(from)]` variants with a single tuple field,
         // delegate to the inner type's translate() method
-        if is_from && tuple_len == 1 {
+        if is_from {
+            if tuple_len != 1 {
+                return syn::Error::new_spanned(
+                    variant_ident,
+                    "#[translate(from)] can only be used on tuple variants with exactly one field",
+                )
+                .to_compile_error()
+                .into();
+            }
             let arm_name = quote! {
                 #enum_name::#variant_ident(inner)
             };
