@@ -121,10 +121,12 @@ async fn test_mcp_tool_list_teams() {
         path: "/api/teams/create",
         headers: ctx.test_user.1.clone(),
         body: {
-            "username": team_username,
-            "nickname": "Test Team",
-            "profile_url": "",
-            "description": ""
+            "body": {
+                "username": team_username,
+                "nickname": "Test Team",
+                "profile_url": "",
+                "description": ""
+            }
         }
     };
     assert_eq!(status, 200, "create_team failed");
@@ -236,10 +238,12 @@ async fn create_test_team(ctx: &TestContext) -> String {
         path: "/api/teams/create",
         headers: ctx.test_user.1.clone(),
         body: {
-            "username": team_username,
-            "nickname": "Test Team",
-            "profile_url": "",
-            "description": ""
+            "body": {
+                "username": team_username,
+                "nickname": "Test Team",
+                "profile_url": "",
+                "description": ""
+            }
         }
     };
     assert_eq!(status, 200, "create_team failed");
