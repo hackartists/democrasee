@@ -187,7 +187,21 @@ pub fn SpaceLayout(space_id: ReadSignal<SpacePartition>) -> Element {
                 }
                 div { class: "flex overflow-auto flex-col flex-1 gap-4 p-5 w-full bg-background rounded-tl-[10px] max-tablet:rounded-tl-none max-tablet:p-3 max-mobile:p-2 max-tablet:overflow-visible",
                     DungeonHero { space_id }
-                    SuspenseBoundary { Outlet::<Route> {} }
+
+                    ErrorBoundary {
+                        handle_error: move |error: ErrorContext| {
+                            error!("Error in component tree: {:?}", error);
+                            rsx! {
+                                ErrorPage {
+                                    to: Route::SpaceDashboardPage {
+                                        space_id: space_id(),
+                                    },
+                                    ctx: error,
+                                }
+                            }
+                        },
+                        SuspenseBoundary { Outlet::<Route> {} }
+                    }
                 }
             }
         }
