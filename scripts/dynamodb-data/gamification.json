@@ -86,6 +86,189 @@
           "last_active_date": { "S": "2026-04-08" }
         }
       }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "pk": { "S": "SPACE#test-space-gamification" },
+          "sk": { "S": "SPACE_CHAPTER#ch-qualify" },
+          "created_at": { "N": "1764227900000000" },
+          "updated_at": { "N": "1764227900000000" },
+          "order": { "N": "0" },
+          "name": { "S": "Qualify" },
+          "description": { "S": "Prove you belong — pass the entrance quiz to become a Participant." },
+          "actor_role": { "S": "Candidate" },
+          "completion_benefit": { "M": {
+            "type": { "S": "RoleUpgradeAndXp" },
+            "value": { "S": "Participant" }
+          }}
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "pk": { "S": "SPACE#test-space-gamification" },
+          "sk": { "S": "SPACE_CHAPTER#ch-debate" },
+          "created_at": { "N": "1764227900000000" },
+          "updated_at": { "N": "1764227900000000" },
+          "order": { "N": "1" },
+          "name": { "S": "Debate" },
+          "description": { "S": "Weigh in on climate policy proposals and earn XP." },
+          "actor_role": { "S": "Participant" },
+          "completion_benefit": { "M": {
+            "type": { "S": "XpOnly" }
+          }}
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "pk": { "S": "SPACE#test-space-gamification" },
+          "sk": { "S": "SPACE_CHAPTER#ch-final" },
+          "created_at": { "N": "1764227900000000" },
+          "updated_at": { "N": "1764227900000000" },
+          "order": { "N": "2" },
+          "name": { "S": "Final Poll" },
+          "description": { "S": "Cast your final vote on the policy package." },
+          "actor_role": { "S": "Participant" },
+          "completion_benefit": { "M": {
+            "type": { "S": "XpOnly" }
+          }}
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "pk": { "S": "SPACE#test-space-gamification" },
+          "sk": { "S": "USER_SPACE_COMBO#USER#00000000-0000-0000-0000-000000000001" },
+          "created_at": { "N": "1764227900000000" },
+          "updated_at": { "N": "1764227900000000" },
+          "current_streak_in_space": { "N": "3" },
+          "combo_multiplier": { "N": "2.0" },
+          "last_completion_at": { "N": "1764227900000000" }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "pk": { "S": "SPACE#test-space-gamification" },
+          "sk": { "S": "USER_SPACE_COMBO#USER#00000000-0000-0000-0000-000000000002" },
+          "created_at": { "N": "1764227900000000" },
+          "updated_at": { "N": "1764227900000000" },
+          "current_streak_in_space": { "N": "5" },
+          "combo_multiplier": { "N": "3.0" },
+          "last_completion_at": { "N": "1764227900000000" }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "pk": { "S": "SPACE#test-space-gamification" },
+          "sk": { "S": "USER_SPACE_COMBO#USER#00000000-0000-0000-0000-000000000003" },
+          "created_at": { "N": "1764227900000000" },
+          "updated_at": { "N": "1764227900000000" },
+          "current_streak_in_space": { "N": "1" },
+          "combo_multiplier": { "N": "1.0" },
+          "last_completion_at": { "N": "1764227800000000" }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "pk": { "S": "SPACE#test-space-gamification" },
+          "sk": { "S": "SPACE_CREATOR_EARNINGS" },
+          "created_at": { "N": "1764227900000000" },
+          "updated_at": { "N": "1764227900000000" },
+          "recipient": { "M": {
+            "type": { "S": "User" },
+            "id": { "S": "00000000-0000-0000-0000-000000000001" }
+          }},
+          "total_xp": { "N": "54300" },
+          "total_points": { "N": "200" }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "pk": { "S": "SPACE#test-space-gamification" },
+          "sk": { "S": "SPACE_XP_LEDGER#USER#00000000-0000-0000-0000-000000000001#1764227900000001" },
+          "gsi1_pk": { "S": "SXL_USER#USER#00000000-0000-0000-0000-000000000001" },
+          "gsi1_sk": { "S": "TS#1764227900000001" },
+          "user_pk": { "S": "USER#00000000-0000-0000-0000-000000000001" },
+          "created_at": { "N": "1764227900000001" },
+          "action_id": { "S": "action-qualify-quiz-1" },
+          "base_points": { "N": "100" },
+          "participants_snapshot": { "N": "247" },
+          "combo_multiplier": { "N": "1.0" },
+          "streak_multiplier": { "N": "1.15" },
+          "xp_earned": { "N": "28405" },
+          "is_creator_share": { "BOOL": false }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "pk": { "S": "SPACE#test-space-gamification" },
+          "sk": { "S": "SPACE_XP_LEDGER#USER#00000000-0000-0000-0000-000000000001#1764227900000002" },
+          "gsi1_pk": { "S": "SXL_USER#USER#00000000-0000-0000-0000-000000000001" },
+          "gsi1_sk": { "S": "TS#1764227900000002" },
+          "user_pk": { "S": "USER#00000000-0000-0000-0000-000000000001" },
+          "created_at": { "N": "1764227900000002" },
+          "action_id": { "S": "action-debate-poll-1" },
+          "base_points": { "N": "150" },
+          "participants_snapshot": { "N": "247" },
+          "combo_multiplier": { "N": "2.0" },
+          "streak_multiplier": { "N": "1.15" },
+          "xp_earned": { "N": "85215" },
+          "is_creator_share": { "BOOL": false }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "pk": { "S": "SPACE#test-space-gamification" },
+          "sk": { "S": "SPACE_XP_LEDGER#USER#00000000-0000-0000-0000-000000000002#1764227900000003" },
+          "gsi1_pk": { "S": "SXL_USER#USER#00000000-0000-0000-0000-000000000002" },
+          "gsi1_sk": { "S": "TS#1764227900000003" },
+          "user_pk": { "S": "USER#00000000-0000-0000-0000-000000000002" },
+          "created_at": { "N": "1764227900000003" },
+          "action_id": { "S": "action-qualify-quiz-1" },
+          "base_points": { "N": "100" },
+          "participants_snapshot": { "N": "247" },
+          "combo_multiplier": { "N": "3.0" },
+          "streak_multiplier": { "N": "1.5" },
+          "xp_earned": { "N": "111150" },
+          "is_creator_share": { "BOOL": false }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "pk": { "S": "SPACE#test-space-gamification" },
+          "sk": { "S": "SPACE_XP_LEDGER#CREATOR#1764227900000004" },
+          "gsi1_pk": { "S": "SXL_USER#USER#00000000-0000-0000-0000-000000000001" },
+          "gsi1_sk": { "S": "TS#1764227900000004" },
+          "user_pk": { "S": "USER#00000000-0000-0000-0000-000000000001" },
+          "created_at": { "N": "1764227900000004" },
+          "action_id": { "S": "action-qualify-quiz-1" },
+          "base_points": { "N": "10" },
+          "participants_snapshot": { "N": "247" },
+          "combo_multiplier": { "N": "1.0" },
+          "streak_multiplier": { "N": "1.0" },
+          "xp_earned": { "N": "2470" },
+          "is_creator_share": { "BOOL": true }
+        }
+      }
     }
   ]
 }
