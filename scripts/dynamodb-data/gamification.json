@@ -332,7 +332,7 @@
       "PutRequest": {
         "Item": {
           "pk": {
-            "S": "SPACE#a0000000-0000-0000-0000-000000000001#action-qualify-quiz"
+            "S": "a0000000-0000-0000-0000-000000000001##action-qualify-quiz"
           },
           "sk": {
             "S": "SPACE_ACTION"
@@ -395,7 +395,7 @@
       "PutRequest": {
         "Item": {
           "pk": {
-            "S": "SPACE#a0000000-0000-0000-0000-000000000001#action-debate-poll"
+            "S": "a0000000-0000-0000-0000-000000000001##action-debate-poll"
           },
           "sk": {
             "S": "SPACE_ACTION"
@@ -458,7 +458,7 @@
       "PutRequest": {
         "Item": {
           "pk": {
-            "S": "SPACE#a0000000-0000-0000-0000-000000000001#action-debate-discussion"
+            "S": "a0000000-0000-0000-0000-000000000001##action-debate-discussion"
           },
           "sk": {
             "S": "SPACE_ACTION"
@@ -525,7 +525,7 @@
       "PutRequest": {
         "Item": {
           "pk": {
-            "S": "SPACE#a0000000-0000-0000-0000-000000000001#action-final-poll"
+            "S": "a0000000-0000-0000-0000-000000000001##action-final-poll"
           },
           "sk": {
             "S": "SPACE_ACTION"
