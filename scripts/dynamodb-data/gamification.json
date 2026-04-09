@@ -3,6 +3,229 @@
     {
       "PutRequest": {
         "Item": {
+          "pk": { "S": "FEED#a0000000-0000-0000-0000-000000000001" },
+          "sk": { "S": "POST" },
+          "created_at": { "N": "1764227900000000" },
+          "updated_at": { "N": "1764227900000000" },
+          "title": { "S": "Seoul Climate Policy 2026" },
+          "html_contents": { "S": "<p>A gamification test space for debating Seoul's 2030 climate policy targets.</p>" },
+          "post_type": { "S": "Post" },
+          "status": { "S": "Published" },
+          "visibility": { "S": "Public" },
+          "shares": { "N": "0" },
+          "likes": { "N": "5" },
+          "comments": { "N": "12" },
+          "reports": { "N": "0" },
+          "user_pk": { "S": "USER#00000000-0000-0000-0000-000000000001" },
+          "gsi1_pk": { "S": "USER_PK#USER#00000000-0000-0000-0000-000000000001" },
+          "gsi1_sk": { "S": "1764227900000000" },
+          "gsi2_sk": { "S": "Public#Published#1764227900000000" },
+          "gsi6_pk": { "S": "FEED#Published#Public" },
+          "gsi6_sk": { "S": "1764227900000000" },
+          "author_display_name": { "S": "User One" },
+          "author_profile_url": { "S": "" },
+          "author_username": { "S": "user1" },
+          "author_type": { "S": "User" },
+          "space_pk": { "S": "SPACE#a0000000-0000-0000-0000-000000000001" },
+          "space_type": { "S": "Poll" },
+          "space_visibility": { "S": "Public" },
+          "urls": { "L": [] },
+          "categories": { "L": [{ "S": "climate" }, { "S": "policy" }] }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "pk": { "S": "SPACE#a0000000-0000-0000-0000-000000000001" },
+          "sk": { "S": "SPACE_COMMON" },
+          "created_at": { "N": "1764227900000000" },
+          "updated_at": { "N": "1764227900000000" },
+          "gsi1_pk": { "S": "USER_PK#USER#00000000-0000-0000-0000-000000000001" },
+          "gsi1_sk": { "S": "1764227900000000" },
+          "gsi2_pk": { "S": "POST_PK#FEED#a0000000-0000-0000-0000-000000000001" },
+          "gsi2_sk": { "S": "1764227900000000" },
+          "gsi6_pk": { "S": "SPACE_COMMON_VIS#Published#Public" },
+          "gsi6_sk": { "S": "1764227900000000" },
+          "status": { "S": "Ongoing" },
+          "visibility": { "S": "Public" },
+          "publish_state": { "S": "Published" },
+          "post_pk": { "S": "FEED#a0000000-0000-0000-0000-000000000001" },
+          "user_pk": { "S": "USER#00000000-0000-0000-0000-000000000001" },
+          "author_display_name": { "S": "User One" },
+          "author_profile_url": { "S": "" },
+          "author_username": { "S": "user1" },
+          "content": { "S": "" },
+          "started_at": { "N": "1764227800000000" },
+          "ended_at": { "N": "1775700000000000" },
+          "anonymous_participation": { "BOOL": false },
+          "join_anytime": { "BOOL": true },
+          "logo": { "S": "" },
+          "participants": { "N": "247" },
+          "quota": { "N": "1000000" },
+          "remains": { "N": "999753" },
+          "reports": { "N": "0" }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "pk": { "S": "SPACE#a0000000-0000-0000-0000-000000000001" },
+          "sk": { "S": "SPACE_PARTICIPANT" },
+          "created_at": { "N": "1764227900000000" },
+          "updated_at": { "N": "1764227900000000" }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "pk": { "S": "SPACE#a0000000-0000-0000-0000-000000000001" },
+          "sk": { "S": "SPACE_CHAPTER#ch-qualify" },
+          "created_at": { "N": "1764227900000000" },
+          "updated_at": { "N": "1764227900000000" },
+          "order": { "N": "0" },
+          "name": { "S": "Qualify" },
+          "description": { "S": "Pass the entrance quiz to become a Participant." },
+          "actor_role": { "S": "Candidate" },
+          "completion_benefit": { "M": { "type": { "S": "RoleUpgradeAndXp" }, "value": { "S": "Participant" } } }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "pk": { "S": "SPACE#a0000000-0000-0000-0000-000000000001" },
+          "sk": { "S": "SPACE_CHAPTER#ch-debate" },
+          "created_at": { "N": "1764227900000000" },
+          "updated_at": { "N": "1764227900000000" },
+          "order": { "N": "1" },
+          "name": { "S": "Debate" },
+          "description": { "S": "Weigh in on climate proposals and earn XP." },
+          "actor_role": { "S": "Participant" },
+          "completion_benefit": { "M": { "type": { "S": "XpOnly" } } }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "pk": { "S": "SPACE#a0000000-0000-0000-0000-000000000001" },
+          "sk": { "S": "SPACE_CHAPTER#ch-final" },
+          "created_at": { "N": "1764227900000000" },
+          "updated_at": { "N": "1764227900000000" },
+          "order": { "N": "2" },
+          "name": { "S": "Final Poll" },
+          "description": { "S": "Cast your final vote on the policy package." },
+          "actor_role": { "S": "Participant" },
+          "completion_benefit": { "M": { "type": { "S": "XpOnly" } } }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "pk": { "S": "SPACE#a0000000-0000-0000-0000-000000000001#action-qualify-quiz" },
+          "sk": { "S": "SPACE_ACTION" },
+          "created_at": { "N": "1764227900000000" },
+          "updated_at": { "N": "1764227900000000" },
+          "gsi1_pk": { "S": "SA#SPACE#a0000000-0000-0000-0000-000000000001" },
+          "gsi1_sk": { "S": "TS#1764227800000000" },
+          "space_pk": { "S": "SPACE#a0000000-0000-0000-0000-000000000001" },
+          "title": { "S": "Climate Pledge Quiz" },
+          "description": { "S": "Prove your knowledge of Seoul's climate targets." },
+          "space_action_type": { "S": "Quiz" },
+          "prerequisite": { "BOOL": true },
+          "started_at": { "N": "1764227800000000" },
+          "ended_at": { "N": "1775700000000000" },
+          "credits": { "N": "0" },
+          "total_points": { "N": "100" },
+          "activity_score": { "N": "10" },
+          "additional_score": { "N": "0" },
+          "chapter_id": { "S": "ch-qualify" },
+          "depends_on": { "L": [] }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "pk": { "S": "SPACE#a0000000-0000-0000-0000-000000000001#action-debate-poll" },
+          "sk": { "S": "SPACE_ACTION" },
+          "created_at": { "N": "1764227910000000" },
+          "updated_at": { "N": "1764227910000000" },
+          "gsi1_pk": { "S": "SA#SPACE#a0000000-0000-0000-0000-000000000001" },
+          "gsi1_sk": { "S": "TS#1764227810000000" },
+          "space_pk": { "S": "SPACE#a0000000-0000-0000-0000-000000000001" },
+          "title": { "S": "2030 Emission Target Vote" },
+          "description": { "S": "Should Seoul aim for 40% or 50% carbon reduction by 2030?" },
+          "space_action_type": { "S": "Poll" },
+          "prerequisite": { "BOOL": false },
+          "started_at": { "N": "1764227810000000" },
+          "ended_at": { "N": "1775700000000000" },
+          "credits": { "N": "0" },
+          "total_points": { "N": "150" },
+          "activity_score": { "N": "15" },
+          "additional_score": { "N": "0" },
+          "chapter_id": { "S": "ch-debate" },
+          "depends_on": { "L": [] }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "pk": { "S": "SPACE#a0000000-0000-0000-0000-000000000001#action-debate-discussion" },
+          "sk": { "S": "SPACE_ACTION" },
+          "created_at": { "N": "1764227920000000" },
+          "updated_at": { "N": "1764227920000000" },
+          "gsi1_pk": { "S": "SA#SPACE#a0000000-0000-0000-0000-000000000001" },
+          "gsi1_sk": { "S": "TS#1764227820000000" },
+          "space_pk": { "S": "SPACE#a0000000-0000-0000-0000-000000000001" },
+          "title": { "S": "Public Transit Investment" },
+          "description": { "S": "Debate how the city should invest in public transit for emissions reduction." },
+          "space_action_type": { "S": "TopicDiscussion" },
+          "prerequisite": { "BOOL": false },
+          "started_at": { "N": "1764227820000000" },
+          "ended_at": { "N": "1775700000000000" },
+          "credits": { "N": "0" },
+          "total_points": { "N": "175" },
+          "activity_score": { "N": "20" },
+          "additional_score": { "N": "0" },
+          "chapter_id": { "S": "ch-debate" },
+          "depends_on": { "L": [{ "S": "action-debate-poll" }] }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "pk": { "S": "SPACE#a0000000-0000-0000-0000-000000000001#action-final-poll" },
+          "sk": { "S": "SPACE_ACTION" },
+          "created_at": { "N": "1764227930000000" },
+          "updated_at": { "N": "1764227930000000" },
+          "gsi1_pk": { "S": "SA#SPACE#a0000000-0000-0000-0000-000000000001" },
+          "gsi1_sk": { "S": "TS#1764227830000000" },
+          "space_pk": { "S": "SPACE#a0000000-0000-0000-0000-000000000001" },
+          "title": { "S": "Final Climate Policy Vote" },
+          "description": { "S": "The concluding vote on the full policy package." },
+          "space_action_type": { "S": "Poll" },
+          "prerequisite": { "BOOL": false },
+          "started_at": { "N": "1764227830000000" },
+          "ended_at": { "N": "1775700000000000" },
+          "credits": { "N": "0" },
+          "total_points": { "N": "200" },
+          "activity_score": { "N": "25" },
+          "additional_score": { "N": "0" },
+          "chapter_id": { "S": "ch-final" },
+          "depends_on": { "L": [] }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
           "pk": { "S": "USER#00000000-0000-0000-0000-000000000001" },
           "sk": { "S": "USER_GLOBAL_XP" },
           "created_at": { "N": "1764227900000000" },
@@ -90,59 +313,7 @@
     {
       "PutRequest": {
         "Item": {
-          "pk": { "S": "SPACE#test-space-gamification" },
-          "sk": { "S": "SPACE_CHAPTER#ch-qualify" },
-          "created_at": { "N": "1764227900000000" },
-          "updated_at": { "N": "1764227900000000" },
-          "order": { "N": "0" },
-          "name": { "S": "Qualify" },
-          "description": { "S": "Prove you belong — pass the entrance quiz to become a Participant." },
-          "actor_role": { "S": "Candidate" },
-          "completion_benefit": { "M": {
-            "type": { "S": "RoleUpgradeAndXp" },
-            "value": { "S": "Participant" }
-          }}
-        }
-      }
-    },
-    {
-      "PutRequest": {
-        "Item": {
-          "pk": { "S": "SPACE#test-space-gamification" },
-          "sk": { "S": "SPACE_CHAPTER#ch-debate" },
-          "created_at": { "N": "1764227900000000" },
-          "updated_at": { "N": "1764227900000000" },
-          "order": { "N": "1" },
-          "name": { "S": "Debate" },
-          "description": { "S": "Weigh in on climate policy proposals and earn XP." },
-          "actor_role": { "S": "Participant" },
-          "completion_benefit": { "M": {
-            "type": { "S": "XpOnly" }
-          }}
-        }
-      }
-    },
-    {
-      "PutRequest": {
-        "Item": {
-          "pk": { "S": "SPACE#test-space-gamification" },
-          "sk": { "S": "SPACE_CHAPTER#ch-final" },
-          "created_at": { "N": "1764227900000000" },
-          "updated_at": { "N": "1764227900000000" },
-          "order": { "N": "2" },
-          "name": { "S": "Final Poll" },
-          "description": { "S": "Cast your final vote on the policy package." },
-          "actor_role": { "S": "Participant" },
-          "completion_benefit": { "M": {
-            "type": { "S": "XpOnly" }
-          }}
-        }
-      }
-    },
-    {
-      "PutRequest": {
-        "Item": {
-          "pk": { "S": "SPACE#test-space-gamification" },
+          "pk": { "S": "SPACE#a0000000-0000-0000-0000-000000000001" },
           "sk": { "S": "USER_SPACE_COMBO#USER#00000000-0000-0000-0000-000000000001" },
           "created_at": { "N": "1764227900000000" },
           "updated_at": { "N": "1764227900000000" },
@@ -155,7 +326,7 @@
     {
       "PutRequest": {
         "Item": {
-          "pk": { "S": "SPACE#test-space-gamification" },
+          "pk": { "S": "SPACE#a0000000-0000-0000-0000-000000000001" },
           "sk": { "S": "USER_SPACE_COMBO#USER#00000000-0000-0000-0000-000000000002" },
           "created_at": { "N": "1764227900000000" },
           "updated_at": { "N": "1764227900000000" },
@@ -168,7 +339,7 @@
     {
       "PutRequest": {
         "Item": {
-          "pk": { "S": "SPACE#test-space-gamification" },
+          "pk": { "S": "SPACE#a0000000-0000-0000-0000-000000000001" },
           "sk": { "S": "USER_SPACE_COMBO#USER#00000000-0000-0000-0000-000000000003" },
           "created_at": { "N": "1764227900000000" },
           "updated_at": { "N": "1764227900000000" },
@@ -181,14 +352,11 @@
     {
       "PutRequest": {
         "Item": {
-          "pk": { "S": "SPACE#test-space-gamification" },
+          "pk": { "S": "SPACE#a0000000-0000-0000-0000-000000000001" },
           "sk": { "S": "SPACE_CREATOR_EARNINGS" },
           "created_at": { "N": "1764227900000000" },
           "updated_at": { "N": "1764227900000000" },
-          "recipient": { "M": {
-            "type": { "S": "User" },
-            "id": { "S": "00000000-0000-0000-0000-000000000001" }
-          }},
+          "recipient": { "M": { "type": { "S": "User" }, "id": { "S": "00000000-0000-0000-0000-000000000001" } } },
           "total_xp": { "N": "54300" },
           "total_points": { "N": "200" }
         }
@@ -197,13 +365,13 @@
     {
       "PutRequest": {
         "Item": {
-          "pk": { "S": "SPACE#test-space-gamification" },
+          "pk": { "S": "SPACE#a0000000-0000-0000-0000-000000000001" },
           "sk": { "S": "SPACE_XP_LEDGER#USER#00000000-0000-0000-0000-000000000001#1764227900000001" },
           "gsi1_pk": { "S": "SXL_USER#USER#00000000-0000-0000-0000-000000000001" },
           "gsi1_sk": { "S": "TS#1764227900000001" },
           "user_pk": { "S": "USER#00000000-0000-0000-0000-000000000001" },
           "created_at": { "N": "1764227900000001" },
-          "action_id": { "S": "action-qualify-quiz-1" },
+          "action_id": { "S": "action-qualify-quiz" },
           "base_points": { "N": "100" },
           "participants_snapshot": { "N": "247" },
           "combo_multiplier": { "N": "1.0" },
@@ -216,13 +384,13 @@
     {
       "PutRequest": {
         "Item": {
-          "pk": { "S": "SPACE#test-space-gamification" },
+          "pk": { "S": "SPACE#a0000000-0000-0000-0000-000000000001" },
           "sk": { "S": "SPACE_XP_LEDGER#USER#00000000-0000-0000-0000-000000000001#1764227900000002" },
           "gsi1_pk": { "S": "SXL_USER#USER#00000000-0000-0000-0000-000000000001" },
           "gsi1_sk": { "S": "TS#1764227900000002" },
           "user_pk": { "S": "USER#00000000-0000-0000-0000-000000000001" },
           "created_at": { "N": "1764227900000002" },
-          "action_id": { "S": "action-debate-poll-1" },
+          "action_id": { "S": "action-debate-poll" },
           "base_points": { "N": "150" },
           "participants_snapshot": { "N": "247" },
           "combo_multiplier": { "N": "2.0" },
@@ -235,13 +403,13 @@
     {
       "PutRequest": {
         "Item": {
-          "pk": { "S": "SPACE#test-space-gamification" },
+          "pk": { "S": "SPACE#a0000000-0000-0000-0000-000000000001" },
           "sk": { "S": "SPACE_XP_LEDGER#USER#00000000-0000-0000-0000-000000000002#1764227900000003" },
           "gsi1_pk": { "S": "SXL_USER#USER#00000000-0000-0000-0000-000000000002" },
           "gsi1_sk": { "S": "TS#1764227900000003" },
           "user_pk": { "S": "USER#00000000-0000-0000-0000-000000000002" },
           "created_at": { "N": "1764227900000003" },
-          "action_id": { "S": "action-qualify-quiz-1" },
+          "action_id": { "S": "action-qualify-quiz" },
           "base_points": { "N": "100" },
           "participants_snapshot": { "N": "247" },
           "combo_multiplier": { "N": "3.0" },
@@ -254,13 +422,13 @@
     {
       "PutRequest": {
         "Item": {
-          "pk": { "S": "SPACE#test-space-gamification" },
+          "pk": { "S": "SPACE#a0000000-0000-0000-0000-000000000001" },
           "sk": { "S": "SPACE_XP_LEDGER#CREATOR#1764227900000004" },
           "gsi1_pk": { "S": "SXL_USER#USER#00000000-0000-0000-0000-000000000001" },
           "gsi1_sk": { "S": "TS#1764227900000004" },
           "user_pk": { "S": "USER#00000000-0000-0000-0000-000000000001" },
           "created_at": { "N": "1764227900000004" },
-          "action_id": { "S": "action-qualify-quiz-1" },
+          "action_id": { "S": "action-qualify-quiz" },
           "base_points": { "N": "10" },
           "participants_snapshot": { "N": "247" },
           "combo_multiplier": { "N": "1.0" },
