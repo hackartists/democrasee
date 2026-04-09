@@ -81,11 +81,14 @@ pub fn DiscussionComments(
                                 let mut discussion_query = discussion_ctx.discussion;
                                 let req = AddCommentRequest { content };
                                 match add_comment(space_id(), discussion_id(), req).await {
-                                    Ok(comment) => {
-                                        comments_query.insert(comment);
+                                    Ok(resp) => {
+                                        comments_query.insert(resp.comment);
                                         discussion_query.restart();
                                         query.invalidate(&space_ranking_key(&space_id()));
                                         query.invalidate(&space_my_score_key(&space_id()));
+                                        if let Some(xp) = resp.xp {
+                                            completion_response.set(Some(xp));
+                                        }
                                     }
                                     Err(e) => {
                                         error!("Failed to add comment: {:?}", e);
@@ -109,38 +112,21 @@ pub fn DiscussionComments(
                             comment_input.set(String::new());
                             let mut comments_query = ctx.comments;
                             let mut discussion_query = discussion_ctx.discussion;
+                            let mut completion_response = completion_response;
                             let req = AddCommentRequest { content };
                             match add_comment(space_id(), discussion_id(), req).await {
-                                Ok(comment) => {
-                                    comments_query.insert(comment);
+                                Ok(resp) => {
+                                    comments_query.insert(resp.comment);
                                     discussion_query.restart();
                                     query.invalidate(&space_ranking_key(&space_id()));
                                     query.invalidate(&space_my_score_key(&space_id()));
+                                    if let Some(xp) = resp.xp {
+                                        completion_response.set(Some(xp));
+                                    }
                                 }
                                 Err(e) => {
                                     error!("Failed to add comment: {:?}", e);
                                 }
-                                comment_input.set(String::new());
-                                let mut comments_query = ctx.comments;
-                                let mut discussion_query = discussion_ctx.discussion;
-                                let mut completion_response = completion_response;
-                                spawn(async move {
-                                    let req = AddCommentRequest { content };
-                                    match add_comment(space_id(), discussion_id(), req).await {
-                                        Ok(resp) => {
-                                            comments_query.insert(resp.comment);
-                                            discussion_query.restart();
-                                            query.invalidate(&space_ranking_key(&space_id()));
-                                            query.invalidate(&space_my_score_key(&space_id()));
-                                            if let Some(xp) = resp.xp {
-                                                completion_response.set(Some(xp));
-                                            }
-                                        }
-                                        Err(e) => {
-                                            error!("Failed to add comment: {:?}", e);
-                                        }
-                                    }
-                                });
                             }
                         },
                         if comment_input().trim().is_empty() {
