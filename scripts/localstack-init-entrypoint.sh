@@ -82,6 +82,10 @@ aws --endpoint-url=$ENDPOINT dynamodb batch-write-item --request-items file://sc
 echo 'Seeding EVM addresses...'
 aws --endpoint-url=$ENDPOINT dynamodb batch-write-item --request-items file://scripts/dynamodb-data/evm-addresses.json
 
+# Gamification: UserGlobalXp + UserStreak for test users
+echo 'Seeding gamification data (UserGlobalXp, UserStreak)...'
+aws --endpoint-url=$ENDPOINT dynamodb batch-write-item --request-items file://scripts/dynamodb-data/gamification.json
+
 # MCP Client Secrets for testing
 # Raw tokens: user1=test-mcp-secret-user1, user2=test-mcp-secret-user2, user3=test-mcp-secret-user3
 echo 'Seeding MCP client secrets...'
@@ -129,4 +133,9 @@ echo '  j94EA1 - Sogang Male'
 echo '  bIFviB - Sogang Female'
 echo '  bVn0Vq - Konkuk Male'
 echo '  wKFegq - Konkuk Female'
+echo ''
+echo 'Gamification (UserGlobalXp + UserStreak):'
+echo '  user1: Lvl 12, 125,000 XP, 500 P, 7-day streak'
+echo '  user2: Lvl 19, 340,000 XP, 1,200 P, 21-day streak'
+echo '  user3: Lvl 9, 78,000 XP, 300 P, 3-day streak'
 echo '======================================'

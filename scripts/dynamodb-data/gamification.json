@@ -1,0 +1,91 @@
+{
+  "ratel-local-main": [
+    {
+      "PutRequest": {
+        "Item": {
+          "pk": { "S": "USER#00000000-0000-0000-0000-000000000001" },
+          "sk": { "S": "USER_GLOBAL_XP" },
+          "created_at": { "N": "1764227900000000" },
+          "updated_at": { "N": "1764227900000000" },
+          "total_xp": { "N": "125000" },
+          "total_points": { "N": "500" },
+          "level": { "N": "12" },
+          "spaces_entered": { "N": "3" },
+          "spaces_cleared": { "N": "1" },
+          "quests_cleared": { "N": "8" }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "pk": { "S": "USER#00000000-0000-0000-0000-000000000002" },
+          "sk": { "S": "USER_GLOBAL_XP" },
+          "created_at": { "N": "1764227900000000" },
+          "updated_at": { "N": "1764227900000000" },
+          "total_xp": { "N": "340000" },
+          "total_points": { "N": "1200" },
+          "level": { "N": "19" },
+          "spaces_entered": { "N": "5" },
+          "spaces_cleared": { "N": "3" },
+          "quests_cleared": { "N": "22" }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "pk": { "S": "USER#00000000-0000-0000-0000-000000000003" },
+          "sk": { "S": "USER_GLOBAL_XP" },
+          "created_at": { "N": "1764227900000000" },
+          "updated_at": { "N": "1764227900000000" },
+          "total_xp": { "N": "78000" },
+          "total_points": { "N": "300" },
+          "level": { "N": "9" },
+          "spaces_entered": { "N": "2" },
+          "spaces_cleared": { "N": "0" },
+          "quests_cleared": { "N": "5" }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "pk": { "S": "USER#00000000-0000-0000-0000-000000000001" },
+          "sk": { "S": "USER_STREAK" },
+          "created_at": { "N": "1764227900000000" },
+          "updated_at": { "N": "1764227900000000" },
+          "current_streak": { "N": "7" },
+          "longest_streak": { "N": "14" },
+          "last_active_date": { "S": "2026-04-09" }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "pk": { "S": "USER#00000000-0000-0000-0000-000000000002" },
+          "sk": { "S": "USER_STREAK" },
+          "created_at": { "N": "1764227900000000" },
+          "updated_at": { "N": "1764227900000000" },
+          "current_streak": { "N": "21" },
+          "longest_streak": { "N": "30" },
+          "last_active_date": { "S": "2026-04-09" }
+        }
+      }
+    },
+    {
+      "PutRequest": {
+        "Item": {
+          "pk": { "S": "USER#00000000-0000-0000-0000-000000000003" },
+          "sk": { "S": "USER_STREAK" },
+          "created_at": { "N": "1764227900000000" },
+          "updated_at": { "N": "1764227900000000" },
+          "current_streak": { "N": "3" },
+          "longest_streak": { "N": "5" },
+          "last_active_date": { "S": "2026-04-08" }
+        }
+      }
+    }
+  ]
+}
