@@ -1,5 +1,6 @@
 mod auth;
 mod composite_partition;
+pub mod content;
 mod entity_type;
 mod error;
 mod event_status;
