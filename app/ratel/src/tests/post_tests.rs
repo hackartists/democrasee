@@ -42,7 +42,7 @@ async fn legacy_html_contents_string_loads_as_html_content_body() {
         "sk": sk,
         "title": "Legacy",
         "html_contents": "<p>legacy body</p>",
-        "post_type": "Discussion",
+        "post_type": 1,
         "status": "Published",
         "user_pk": "USER#legacy",
         "shares": 0,
@@ -54,7 +54,7 @@ async fn legacy_html_contents_string_loads_as_html_content_body() {
         "author_display_name": "x",
         "author_profile_url": "x",
         "author_username": "x",
-        "author_type": "Individual",
+        "author_type": 1,
         "urls": [],
         "categories": [],
     })).unwrap();
