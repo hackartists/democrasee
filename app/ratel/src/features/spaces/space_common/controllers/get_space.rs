@@ -86,6 +86,10 @@ pub async fn get_space(
         post_id: post_pk.into(),
         sk: space.sk,
         title: post.title,
+        // Lossy projection: this response always emits ContentBody::HtmlContent
+        // for the body field, regardless of how `space.body` was stored.
+        // When structured content emission lands (Phase 4), revisit this — clients
+        // that round-trip block trees will need the structured form preserved here.
         body: ContentBody::html(if space.body.is_empty() {
             strip_color_styles(&post.body.to_html())
         } else {
