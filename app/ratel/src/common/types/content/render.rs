@@ -32,6 +32,15 @@ impl ContentDocument {
 
     /// Lossy projection used until structured rendering lands in the UI.
     /// Each block becomes one HTML element; inline runs become spans/strong/em.
+    ///
+    /// Known limitations of this lossy projection (Phase 4 will replace it):
+    /// - `BulletedListItem` / `NumberedListItem` emit bare `<li>` without
+    ///   `<ul>` / `<ol>` wrapper — invalid HTML, but produces visible bullets
+    ///   in lenient browsers. Cross-posting and email pipelines should consume
+    ///   `to_plain_text()` not `to_html()` for now.
+    /// - `MediaSource::Asset` is rendered with the raw asset_id as `src` —
+    ///   downstream consumers see broken images for internal assets.
+    /// - `Custom` and `Unknown` blocks render as empty.
     pub fn to_html(&self) -> String {
         let mut out = String::new();
         for block in &self.blocks {
@@ -124,7 +133,12 @@ impl Block {
             BlockKind::Toggle(t) => {
                 out.push_str("<details><summary>");
                 t.rich_text.append_html(out);
-                out.push_str("</summary></details>");
+                out.push_str("</summary>");
+                for child in &self.children {
+                    child.append_html(out);
+                }
+                out.push_str("</details>");
+                return; // skip the generic children loop at the end of this fn
             }
             BlockKind::Todo(t) => {
                 let cb = if t.checked { "checked " } else { "" };
@@ -136,7 +150,9 @@ impl Block {
             }
             BlockKind::Code(c) => {
                 out.push_str("<pre><code>");
-                c.rich_text.append_plain(out);
+                let mut plain = String::new();
+                c.rich_text.append_plain(&mut plain);
+                html_escape(&plain, out);
                 out.push_str("</code></pre>");
             }
             BlockKind::Callout(c) => {
@@ -250,19 +266,20 @@ impl RichText {
 }
 
 fn strip_html_tags(html: &str) -> String {
-    // Same shape as features/posts/utils/validator.rs::extract_plain_text.
-    let re_img = regex::Regex::new(r"<img[^>]*>").unwrap();
-    let no_img = re_img.replace_all(html, "");
-    let re_tags = regex::Regex::new(r"<[^>]+>").unwrap();
-    let no_tags = re_tags.replace_all(&no_img, "");
-    let re_urls = regex::Regex::new(r"https?://[^\s]+").unwrap();
-    let no_urls = re_urls.replace_all(&no_tags, "");
+    use once_cell::sync::Lazy;
+    static RE_TAGS: Lazy<regex::Regex> = Lazy::new(|| regex::Regex::new(r"<[^>]+>").unwrap());
+    static RE_URLS: Lazy<regex::Regex> =
+        Lazy::new(|| regex::Regex::new(r"https?://[^\s]+").unwrap());
+
+    let no_tags = RE_TAGS.replace_all(html, "");
+    let no_urls = RE_URLS.replace_all(&no_tags, "");
     normalize_whitespace(&no_urls)
 }
 
 fn normalize_whitespace(s: &str) -> String {
-    let re = regex::Regex::new(r"\s+").unwrap();
-    re.replace_all(s, " ").trim().to_string()
+    use once_cell::sync::Lazy;
+    static RE_WS: Lazy<regex::Regex> = Lazy::new(|| regex::Regex::new(r"\s+").unwrap());
+    RE_WS.replace_all(s, " ").trim().to_string()
 }
 
 fn html_escape(input: &str, out: &mut String) {

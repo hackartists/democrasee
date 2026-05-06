@@ -160,3 +160,73 @@ fn char_count_counts_unicode_chars() {
     let body = ContentBody::html("<p>가나다</p>");
     assert_eq!(body.char_count(), 3);
 }
+
+#[test]
+fn structured_code_block_html_escapes_special_chars() {
+    let doc = ContentDocument {
+        schema_version: 1,
+        blocks: vec![Block {
+            id: "b1".into(),
+            kind: BlockKind::Code(CodeBlock {
+                rich_text: RichText(vec![InlineNode::Text(TextRun {
+                    content: "x < y && z > 0".into(),
+                    annotations: Annotations::default(),
+                    link: None,
+                })]),
+                language: "rust".into(),
+                caption: RichText::default(),
+            }),
+            children: vec![],
+            created_at: 0,
+            updated_at: 0,
+        }],
+        meta: serde_json::Map::new(),
+    };
+    let html = ContentBody::structured(doc).to_html();
+    assert!(html.contains("&lt;"), "< must be escaped, got: {html}");
+    assert!(html.contains("&amp;"), "& must be escaped, got: {html}");
+    assert!(html.contains("&gt;"), "> must be escaped, got: {html}");
+    assert!(!html.contains("x < y"), "raw < must not appear, got: {html}");
+}
+
+#[test]
+fn structured_toggle_with_children_wraps_in_details() {
+    let doc = ContentDocument {
+        schema_version: 1,
+        blocks: vec![Block {
+            id: "t1".into(),
+            kind: BlockKind::Toggle(TextBlock {
+                rich_text: RichText(vec![InlineNode::Text(TextRun {
+                    content: "Click me".into(),
+                    annotations: Annotations::default(),
+                    link: None,
+                })]),
+                color: Color::Default,
+            }),
+            children: vec![Block {
+                id: "p1".into(),
+                kind: BlockKind::Paragraph(TextBlock {
+                    rich_text: RichText(vec![InlineNode::Text(TextRun {
+                        content: "child".into(),
+                        annotations: Annotations::default(),
+                        link: None,
+                    })]),
+                    color: Color::Default,
+                }),
+                children: vec![],
+                created_at: 0,
+                updated_at: 0,
+            }],
+            created_at: 0,
+            updated_at: 0,
+        }],
+        meta: serde_json::Map::new(),
+    };
+    let html = ContentBody::structured(doc).to_html();
+    // Child must be inside <details>, before </details>
+    let details_open = html.find("<details>").expect("has <details>");
+    let details_close = html.find("</details>").expect("has </details>");
+    let child_pos = html.find("<p>child</p>").expect("has child paragraph");
+    assert!(details_open < child_pos, "child must come after <details>: {html}");
+    assert!(child_pos < details_close, "child must come before </details>: {html}");
+}
