@@ -745,8 +745,16 @@ fn EmptyState(
                     path { d: "M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" }
                 }
             }
-            div { class: "empty-state__title", "{title}" }
-            div { class: "empty-state__desc", "{desc}" }
+            div { class: "",
+                {title}
+                empty-state__title {}
+                ","
+            }
+            div { class: "",
+                {desc}
+                empty-state__desc {}
+                ","
+            }
             button { class: "empty-state__cta", onclick: move |_| on_cta.call(()),
                 svg {
                     view_box: "0 0 24 24",

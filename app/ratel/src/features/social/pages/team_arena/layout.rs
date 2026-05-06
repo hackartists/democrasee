@@ -223,7 +223,9 @@ pub fn TeamArenaLayout(username: String) -> Element {
                 on_open_settings: move |_| settings_open.set(true),
             }
 
-            div { class: "team-arena__content", Outlet::<Route> {} }
+            div { class: "team-arena__content",
+                SuspenseBoundary { Outlet::<Route> {} }
+            }
 
             ArenaSettingsPanel {
                 open: settings_open(),
