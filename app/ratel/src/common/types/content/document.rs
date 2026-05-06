@@ -17,7 +17,9 @@ pub struct Block {
     pub kind: BlockKind,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub children: Vec<Block>,
+    #[serde(default)]
     pub created_at: i64,
+    #[serde(default)]
     pub updated_at: i64,
 }
 
@@ -125,6 +127,7 @@ pub struct BookmarkBlock {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct EmbedBlock {
     pub url: String,
+    #[serde(default)]
     pub provider: Option<String>,
 }
 
