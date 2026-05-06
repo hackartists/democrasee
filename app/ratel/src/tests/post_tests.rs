@@ -32,9 +32,9 @@ async fn legacy_html_contents_string_loads_as_html_content_body() {
 
     let ctx = TestContext::setup().await;
     let cli = &ctx.ddb;
-    let table = std::env::var("DYNAMO_TABLE_PREFIX").unwrap_or_else(|_| "ratel-local".into()) + "-main";
+    let table = std::env::var("DYNAMO_TABLE_PREFIX").unwrap() + "-main";
     let pk = format!("POST#{}", uuid::Uuid::new_v4());
-    let sk = "POST_BODY#legacy".to_string();
+    let sk = "POST".to_string();
 
     // Build a legacy item — `html_contents` (string) instead of `body` (map).
     let item = serde_dynamo::to_item(serde_json::json!({

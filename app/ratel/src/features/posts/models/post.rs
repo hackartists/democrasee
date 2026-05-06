@@ -18,7 +18,7 @@ pub struct Post {
     pub updated_at: i64,
 
     pub title: String,
-    #[serde(alias = "html_contents")]
+    #[serde(alias = "html_contents", default)]
     pub body: ContentBody,
     pub post_type: PostType,
 
