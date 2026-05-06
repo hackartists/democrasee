@@ -61,3 +61,60 @@ fn default_is_empty_html() {
     let body: ContentBody = ContentBody::default();
     assert_eq!(body, ContentBody::HtmlContent(String::new()));
 }
+
+#[test]
+fn structured_content_round_trip_with_blocks() {
+    let doc = ContentDocument {
+        schema_version: 1,
+        blocks: vec![Block {
+            id: "b1".into(),
+            kind: BlockKind::Paragraph(TextBlock::default()),
+            children: vec![],
+            created_at: 0,
+            updated_at: 0,
+        }],
+        meta: serde_json::Map::new(),
+    };
+    let body = ContentBody::StructuredContent(doc);
+    let json = serde_json::to_string(&body).unwrap();
+    let body2: ContentBody = serde_json::from_str(&json).unwrap();
+    assert_eq!(body, body2);
+}
+
+#[test]
+fn null_json_value_fails_to_deserialize() {
+    let result: Result<ContentBody, _> = serde_json::from_str("null");
+    assert!(result.is_err(), "null should not deserialize as ContentBody");
+}
+
+#[test]
+fn integer_json_value_fails_to_deserialize() {
+    let result: Result<ContentBody, _> = serde_json::from_str("42");
+    assert!(result.is_err(), "integer should not deserialize as ContentBody");
+}
+
+#[test]
+fn array_json_value_fails_to_deserialize() {
+    let result: Result<ContentBody, _> = serde_json::from_str("[]");
+    assert!(result.is_err(), "array should not deserialize as ContentBody");
+}
+
+#[test]
+fn is_empty_returns_true_for_default() {
+    assert!(ContentBody::default().is_empty());
+}
+
+#[test]
+fn is_empty_returns_true_for_whitespace_html() {
+    assert!(ContentBody::html("   \n\t  ").is_empty());
+}
+
+#[test]
+fn is_empty_returns_false_for_non_empty_html() {
+    assert!(!ContentBody::html("<p>x</p>").is_empty());
+}
+
+#[test]
+fn is_empty_returns_true_for_empty_structured_doc() {
+    assert!(ContentBody::structured(ContentDocument::default()).is_empty());
+}

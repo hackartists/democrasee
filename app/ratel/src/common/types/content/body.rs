@@ -24,6 +24,13 @@ impl ContentBody {
         ContentBody::StructuredContent(doc)
     }
 
+    /// Returns `true` if this body is structurally empty.
+    ///
+    /// - `HtmlContent`: whitespace-only HTML returns `true`.
+    /// - `StructuredContent`: returns `true` only if the document has zero
+    ///   blocks. A document with one whitespace-only paragraph still returns
+    ///   `false`. For a "visually empty" check, walk the blocks via
+    ///   `to_plain_text().trim().is_empty()` once Task 3 lands.
     pub fn is_empty(&self) -> bool {
         match self {
             ContentBody::HtmlContent(s) => s.trim().is_empty(),
@@ -44,33 +51,52 @@ impl From<&str> for ContentBody {
     }
 }
 
-// Custom Deserialize: accept three on-wire shapes.
-//   1. JSON string                                -> HtmlContent (legacy raw row)
-//   2. {"content_type":"html_content","data":...} -> tagged
-//   3. {"content_type":"structured_content",...}  -> tagged
 impl<'de> Deserialize<'de> for ContentBody {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: Deserializer<'de>,
     {
-        let v = serde_json::Value::deserialize(deserializer)?;
+        use serde::de::{self, MapAccess, Visitor};
+        use std::fmt;
 
-        match v {
-            serde_json::Value::String(s) => Ok(ContentBody::HtmlContent(s)),
-            other => {
-                #[derive(Deserialize)]
-                #[serde(tag = "content_type", content = "data", rename_all = "snake_case")]
-                enum Tagged {
-                    StructuredContent(ContentDocument),
-                    HtmlContent(String),
-                }
-                let tagged: Tagged = serde_json::from_value(other)
-                    .map_err(serde::de::Error::custom)?;
+        // Internal tagged enum used only inside visit_map. The outer custom
+        // impl lets us also accept a bare JSON string (legacy raw HTML rows).
+        #[derive(Deserialize)]
+        #[serde(tag = "content_type", content = "data", rename_all = "snake_case")]
+        enum Tagged {
+            StructuredContent(ContentDocument),
+            HtmlContent(String),
+        }
+
+        struct ContentBodyVisitor;
+
+        impl<'de> Visitor<'de> for ContentBodyVisitor {
+            type Value = ContentBody;
+
+            fn expecting(&self, f: &mut fmt::Formatter) -> fmt::Result {
+                f.write_str("a string (legacy raw HTML) or a tagged ContentBody object")
+            }
+
+            fn visit_str<E: de::Error>(self, s: &str) -> Result<ContentBody, E> {
+                Ok(ContentBody::HtmlContent(s.to_owned()))
+            }
+
+            fn visit_string<E: de::Error>(self, s: String) -> Result<ContentBody, E> {
+                Ok(ContentBody::HtmlContent(s))
+            }
+
+            fn visit_map<A>(self, map: A) -> Result<ContentBody, A::Error>
+            where
+                A: MapAccess<'de>,
+            {
+                let tagged = Tagged::deserialize(de::value::MapAccessDeserializer::new(map))?;
                 Ok(match tagged {
                     Tagged::StructuredContent(d) => ContentBody::StructuredContent(d),
                     Tagged::HtmlContent(s) => ContentBody::HtmlContent(s),
                 })
             }
         }
+
+        deserializer.deserialize_any(ContentBodyVisitor)
     }
 }
