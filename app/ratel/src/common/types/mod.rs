@@ -17,6 +17,7 @@ mod user_or_team;
 
 pub use auth::*;
 pub use composite_partition::*;
+pub use content::*;
 pub use entity_type::*;
 pub use error::*;
 pub use event_status::*;
