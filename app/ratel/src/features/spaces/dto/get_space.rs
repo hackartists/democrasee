@@ -7,7 +7,8 @@ pub struct GetSpaceResponse {
     pub pk: Partition,
     pub sk: EntityType,
     pub title: String,
-    pub content: String,
+    #[serde(alias = "content", default)]
+    pub body: ContentBody,
     pub created_at: i64,
     pub updated_at: i64,
     pub urls: Vec<String>,

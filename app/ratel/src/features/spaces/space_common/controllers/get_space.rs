@@ -86,11 +86,11 @@ pub async fn get_space(
         post_id: post_pk.into(),
         sk: space.sk,
         title: post.title,
-        content: if space.content.is_empty() {
+        body: ContentBody::html(if space.body.is_empty() {
             strip_color_styles(&post.body.to_html())
         } else {
-            space.content
-        },
+            space.body.to_html()
+        }),
         created_at: space.created_at,
         updated_at: space.updated_at,
         urls: post.urls,
@@ -136,7 +136,8 @@ pub struct SpaceResponse {
     pub post_id: FeedPartition,
     pub sk: EntityType,
     pub title: String,
-    pub content: String,
+    #[serde(alias = "content", default)]
+    pub body: ContentBody,
     pub created_at: i64,
     pub updated_at: i64,
     pub urls: Vec<String>,
@@ -186,9 +187,6 @@ fn strip_color_styles(html: &str) -> String {
 
 impl SpaceResponse {
     pub fn description(&self) -> String {
-        let re = regex::Regex::new(r"<[^>]*>").unwrap();
-        let content = re.replace_all(&self.content, "");
-
-        content.to_string()
+        self.body.to_plain_text()
     }
 }

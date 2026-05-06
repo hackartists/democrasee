@@ -25,7 +25,7 @@ import useBaseUrl from '@docusaurus/useBaseUrl';
 
 방문자가 로그인한 상태이고 본인이 아니라면 헤더 옆에 **팔로우 / 팔로잉** 버튼이 보입니다. 누군가를 팔로우하면, 그 사람의 게시글이 팔로워의 피드에서 더 위로 가중치를 받습니다.
 
-이름 오른쪽의 **Level 칩** 은 캐릭터 레벨을 보여줍니다 — Essence 를 채운 활동량에 대한 공개 요약이에요. ([내 Essence → Character](./my-essence#-character-mecharacter) 에서 레벨이 무엇을 의미하고 SP 를 어떻게 쓰는지 자세히 다룹니다.)
+이름 오른쪽의 **Level 칩** 은 캐릭터 레벨을 보여줍니다 — Essence 를 채운 활동량에 대한 공개 요약이에요. ([내 Essence → Character](./my-essence#-character--mecharacter) 에서 레벨이 무엇을 의미하고 SP 를 어떻게 쓰는지 자세히 다룹니다.)
 
 ## 팔로잉과 팔로워
 

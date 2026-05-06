@@ -23,7 +23,7 @@ The page is organized around **cycles**. A cycle is one calendar month: rewards 
 
 Two units flow through the rewards system, and they do different jobs. (Both are defined more formally in the [Glossary → Rewards](./intro/glossary#rewards) section.)
 
-- **Points** (`pts`) — In-platform reputation, awarded for completing actions. Points accumulate inside a cycle and feed your Direct-Activity Index. They're the *unit of earning*, weighted by skill-tree boosts on your [Character](./my-essence#-character-mecharacter) page.
+- **Points** (`pts`) — In-platform reputation, awarded for completing actions. Points accumulate inside a cycle and feed your Direct-Activity Index. They're the *unit of earning*, weighted by skill-tree boosts on your [Character](./my-essence#-character--mecharacter) page.
 - **Tokens** — On-chain payouts you can claim once a cycle locks in. Tokens are backed 1:1 by a treasury reserve, and the per-cycle exchange rate updates every block. The Rewards page shows both your **estimated tokens** for the current cycle and the actual token amount available to claim from past cycles.
 
 Credits (the host-funded unit attached to a specific Action's reward in a Space) are the upstream of these — when an Action you complete pays out, its Credits are converted to your Points balance for the cycle.
@@ -82,7 +82,7 @@ You don't have to do anything special to earn — the platform credits Points au
 - **Hosting a Space Action** — When participants complete a Poll, Discussion, Quiz, or Follow you host, Credits from the Space's [Incentive Pool *(Beta)*](./spaces/apps#-incentive-pool-beta) are converted to Points in your account.
 - **Completing a participant Action** — When you complete a reward-bearing Action as a participant, you receive Points drawn from that Space's Incentive Pool. (See [Space Actions → How action rewards work](./spaces/actions#how-action-rewards-work).)
 - **Post engagement** — Posts that gather likes, comments, and reshares earn engagement-weighted Points back to the author.
-- **Character skill multipliers** — Boosts you've bought on your [Character](./my-essence#-character-mecharacter) page (Money Tree at MVP) multiply every Point payout you receive.
+- **Character skill multipliers** — Boosts you've bought on your [Character](./my-essence#-character--mecharacter) page (Money Tree at MVP) multiply every Point payout you receive.
 
 The **Direct-Activity Index** is computed off your participation history (writing, voting, discussing weighted higher than passive activity) so the leaderboard rewards real engagement; it's a signal the platform uses for ranking and weighting, not a number rendered on the page today.
 
@@ -105,6 +105,6 @@ A few things to know:
 
 Once you have a feel for the page, the most useful follow-ups are:
 
-- [Character](./my-essence#-character-mecharacter) — Spend the SP your earnings have unlocked. Money Tree boosts every future Point payout multiplicatively.
+- [Character](./my-essence#-character--mecharacter) — Spend the SP your earnings have unlocked. Money Tree boosts every future Point payout multiplicatively.
 - [Space Actions → How action rewards work](./spaces/actions#how-action-rewards-work) — Where Action-level rewards come from before they become Points in your account.
 - [Glossary → Rewards](./intro/glossary#rewards) — Formal definitions of Point, Credit, Token, Stablecoin, and the off-chain / on-chain settlement split.

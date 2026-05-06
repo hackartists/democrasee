@@ -33,7 +33,7 @@ pub fn OverviewPanel(
         space.author_profile_url.clone()
     };
 
-    let content_init = space.content.clone();
+    let content_init = space.body.to_html();
     let mut editing = use_signal(|| false);
     let mut about_value = use_signal(|| content_init.clone());
     let mut about_display = use_signal(|| content_init.clone());
@@ -149,7 +149,7 @@ pub fn OverviewPanel(
                                 let result = update_space_content(
                                         space_pk.clone(),
                                         UpdateContentRequest {
-                                            content: html.clone(),
+                                            content: ContentBody::html(html.clone()),
                                         },
                                     )
                                     .await;

@@ -7,7 +7,8 @@ pub struct Space {
     pub pk: Partition,
     pub sk: EntityType,
     pub title: String,
-    pub content: String,
+    #[serde(alias = "content", default)]
+    pub body: ContentBody,
     pub created_at: i64,
     pub updated_at: i64,
     pub urls: Vec<String>,
@@ -50,7 +51,7 @@ impl From<GetSpaceResponse> for Space {
             pk: dto.pk,
             sk: dto.sk,
             title: dto.title,
-            content: dto.content,
+            body: dto.body,
             created_at: dto.created_at,
             updated_at: dto.updated_at,
             urls: dto.urls,

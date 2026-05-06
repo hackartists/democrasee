@@ -121,8 +121,8 @@ rmcp = { version = "0.7.0", git = "https://github.com/modelcontextprotocol/rust-
 default = []
 bypass = []
 web = ["dioxus/web", "getrandom", "gloo-timers", "time/wasm-bindgen", "attr-voting", "hex", "sha2"]
-desktop = ["dioxus/desktop"]
-mobile = ["dioxus/mobile"]
+desktop = ["dioxus/desktop", "getrandom", "gloo-timers", "time/wasm-bindgen", "attr-voting", "hex", "sha2"]
+mobile = ["dioxus/mobile", "getrandom", "gloo-timers", "time/wasm-bindgen", "attr-voting", "hex", "sha2"]
 server = [
   "aide",
   "aws-config",

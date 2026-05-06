@@ -19,7 +19,7 @@ pub enum UpdateSpaceRequest {
         visibility: SpaceVisibility,
     },
     Content {
-        content: String,
+        content: ContentBody,
     },
     Title {
         title: String,
@@ -62,7 +62,8 @@ pub struct UpdateSpaceResponse {
     pub status: Option<SpaceStatus>,
     pub publish_state: SpacePublishState,
     pub visibility: SpaceVisibility,
-    pub content: String,
+    #[serde(alias = "content", default)]
+    pub body: ContentBody,
     pub anonymous_participation: bool,
     #[serde(default)]
     pub join_anytime: bool,
@@ -84,7 +85,7 @@ impl From<SpaceCommon> for UpdateSpaceResponse {
             status: s.status,
             publish_state: s.publish_state,
             visibility: s.visibility,
-            content: s.content,
+            body: s.body,
             anonymous_participation: s.anonymous_participation,
             join_anytime: s.join_anytime,
             quota: s.quota,
@@ -162,15 +163,15 @@ pub async fn update_space(
             updated_space.visibility = visibility;
         }
         UpdateSpaceRequest::Content { content } => {
-            su = su.with_content(content.clone());
+            su = su.with_body(content.clone());
 
             let post_pk = space_pk.clone().to_post_key()?;
             let post_updater = Post::updater(post_pk, EntityType::Post)
                 .with_updated_at(now)
-                .with_body(ContentBody::html(content.clone()));
+                .with_body(content.clone());
             pu = Some(post_updater);
 
-            updated_space.content = content;
+            updated_space.body = content;
         }
         UpdateSpaceRequest::Title { title } => {
             let post_pk = space_pk.clone().to_post_key()?;

@@ -26,8 +26,8 @@ pub struct SpaceCommon {
     #[dynamo(prefix = "POST_PK", name = "find_by_post_pk", index = "gsi2", pk)]
     pub post_pk: Partition,
     // pub space_type: SpaceType,
-    #[serde(default)]
-    pub content: String,
+    #[serde(alias = "content", default)]
+    pub body: ContentBody,
 
     #[dynamo(prefix = "USER_PK", name = "find_by_user_pk", index = "gsi1", pk)]
     pub user_pk: Partition,

@@ -21,7 +21,7 @@ pub fn OverviewContent(
     let space_loader = use_space();
     let space = space_loader();
 
-    let mut content = use_signal(|| space.content.clone());
+    let mut content = use_signal(|| space.body.to_html());
     let mut is_editing = use_signal(|| false);
     let mut is_saving = use_signal(|| false);
     let mut error = use_signal(|| None::<String>);
@@ -88,7 +88,7 @@ pub fn OverviewContent(
                                                 match crate::features::spaces::pages::overview::controllers::update_space_content(
                                                         space_pk.clone(),
                                                         crate::features::spaces::pages::overview::controllers::UpdateContentRequest {
-                                                            content: html,
+                                                            content: ContentBody::html(html),
                                                         },
                                                     )
                                                     .await

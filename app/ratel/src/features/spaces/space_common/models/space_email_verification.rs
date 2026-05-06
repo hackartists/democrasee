@@ -195,7 +195,7 @@ impl SpaceEmailVerification {
         let notification = Notification::new(NotificationData::SendSpaceInvitation {
             emails: user_emails,
             space_title: title,
-            space_content: Self::html_excerpt_ellipsis(&space.content, 160),
+            space_content: Self::html_excerpt_ellipsis(&space.body.to_html(), 160),
             author_profile_url: space.author_profile_url.clone(),
             author_username: space.author_username.clone(),
             author_display_name: space.author_display_name.clone(),

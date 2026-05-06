@@ -9,7 +9,7 @@ use crate::features::posts::models::Post;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UpdateContentRequest {
-    pub content: String,
+    pub content: ContentBody,
 }
 
 #[patch("/api/spaces/{space_pk}/overview/content", role: SpaceUserRole)]
@@ -27,10 +27,10 @@ pub async fn update_space_content(
     let dynamo = conf.dynamodb();
 
     let update_space = SpaceCommon::updater(&space_partition, EntityType::SpaceCommon)
-        .with_content(req.content.clone())
+        .with_body(req.content.clone())
         .execute(dynamo);
     let update_post = Post::updater(&post_partition, EntityType::Post)
-        .with_body(ContentBody::html(req.content))
+        .with_body(req.content)
         .execute(dynamo);
 
     tokio::try_join!(update_space, update_post).map_err(|e| {

@@ -25,7 +25,7 @@ When someone opens `/<your-handle>` they land on your **profile home** with thre
 
 If they're signed in and not you, they'll see a **Follow** / **Following** button on the header. Following someone weights their posts higher in the follower's feed.
 
-A **Level chip** to the right of your name shows your Character level — a public summary of how much activity has fed your Essence. (See [My Essence → Character](./my-essence#-character-mecharacter) for what the level represents and how to spend the SP it earns you.)
+A **Level chip** to the right of your name shows your Character level — a public summary of how much activity has fed your Essence. (See [My Essence → Character](./my-essence#-character--mecharacter) for what the level represents and how to spend the SP it earns you.)
 
 ## Following and followers
 

@@ -127,8 +127,8 @@ pub async fn list_my_spaces_handler(
                     title_map.get(&post_pk_str).cloned()
                 })
                 .unwrap_or_default();
-            let description = if !space.content.is_empty() {
-                extract_description(&space.content)
+            let description = if !space.body.is_empty() {
+                space.body.to_plain_text()
             } else {
                 post_pk
                     .as_ref()

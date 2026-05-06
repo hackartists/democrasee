@@ -92,8 +92,8 @@ pub async fn list_my_home_spaces_handler(
         let post_pk_str = post_pk.as_ref().map(|p| p.to_string()).unwrap_or_default();
 
         let title = title_map.get(&post_pk_str).cloned().unwrap_or_default();
-        let description = if !space.content.is_empty() {
-            extract_description(&space.content)
+        let description = if !space.body.is_empty() {
+            space.body.to_plain_text()
         } else {
             desc_map.get(&post_pk_str).cloned().unwrap_or_default()
         };

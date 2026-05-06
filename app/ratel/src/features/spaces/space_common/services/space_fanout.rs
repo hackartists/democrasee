@@ -87,8 +87,8 @@ pub async fn upsert_hot_space(cli: &aws_sdk_dynamodb::Client, space_pk: &Partiti
     };
 
     let post_pk = space.pk.clone().to_post_key().unwrap_or_default();
-    let description = if !space.content.is_empty() {
-        extract_description(&space.content)
+    let description = if !space.body.is_empty() {
+        space.body.to_plain_text()
     } else {
         String::new()
     };
@@ -171,6 +171,7 @@ async fn count_actions(
     (polls, discussions, quizzes, follows)
 }
 
+#[allow(dead_code)]
 fn extract_description(html: &str) -> String {
     let re_img = regex::Regex::new(r"<img[^>]*>").unwrap();
     let without_images = re_img.replace_all(html, "");
