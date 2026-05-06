@@ -122,3 +122,40 @@ async fn legacy_html_contents_string_loads_as_html_content_body() {
         serde_dynamo::from_item(retrieved_item).expect("failed to deserialize Post from DynamoDB item");
     assert_eq!(post.body, ContentBody::HtmlContent("<p>legacy body</p>".into()));
 }
+
+/// Legacy `PostComment` rows stored `content` (a plain string) instead of
+/// the new `body` (a tagged map). The `#[serde(alias = "content")]` on
+/// `body` plus the `ContentBody` deserializer must accept both shapes.
+#[test]
+fn legacy_content_loads_as_html_content_body_for_comments() {
+    use crate::common::ContentBody;
+    use aws_sdk_dynamodb::types::AttributeValue;
+
+    let post_uuid = uuid::Uuid::new_v4().to_string();
+    let comment_uuid = uuid::Uuid::new_v4().to_string();
+    let pk = format!("FEED#{}", post_uuid);
+    let sk = format!("POST_COMMENT#{}", comment_uuid);
+
+    let item: std::collections::HashMap<String, AttributeValue> = [
+        ("pk".to_string(), AttributeValue::S(pk)),
+        ("sk".to_string(), AttributeValue::S(sk)),
+        ("updated_at".to_string(), AttributeValue::N("0".to_string())),
+        ("content".to_string(), AttributeValue::S("<p>legacy comment</p>".to_string())),
+        ("images".to_string(), AttributeValue::L(vec![])),
+        ("likes".to_string(), AttributeValue::N("0".to_string())),
+        ("reports".to_string(), AttributeValue::N("0".to_string())),
+        ("replies".to_string(), AttributeValue::N("0".to_string())),
+        ("author_pk".to_string(), AttributeValue::S("USER#legacy".to_string())),
+        ("author_display_name".to_string(), AttributeValue::S("x".to_string())),
+        ("author_username".to_string(), AttributeValue::S("x".to_string())),
+        ("author_profile_url".to_string(), AttributeValue::S("x".to_string())),
+    ].into_iter().collect();
+
+    let comment: crate::features::posts::models::PostComment =
+        serde_dynamo::from_item(item).expect("legacy content key should deserialize via serde alias");
+
+    assert_eq!(
+        comment.body,
+        ContentBody::HtmlContent("<p>legacy comment</p>".into())
+    );
+}
