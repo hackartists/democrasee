@@ -4,7 +4,7 @@
 //! - [`format_for_platform`] — used when `SyndicationJob.body_override` is
 //!   `None` (Phase 1 always; v1.5 when the user did NOT author a per-network
 //!   variant). Builds the syndicated body from the canonical `Post`'s
-//!   `title` + HTML-stripped `html_contents` + backlink.
+//!   `title` + HTML-stripped `body` + backlink.
 //! - [`truncate_override`] — used when `body_override` is `Some(_)` (v1.5+).
 //!   Free-text override goes through length-only truncation, preserves the
 //!   trailing backlink.
@@ -26,7 +26,7 @@ const ELLIPSIS: char = '…';
 pub fn format_for_platform(post: &Post, platform: SocialPlatform, backlink: &str) -> String {
     let limit = platform.char_limit();
     let title = post.title.trim();
-    let body = post.body.to_plain_text();
+    let body = strip_html(&post.body.to_html());
 
     // Reserve trailing "\n{backlink}" — backlink is non-truncatable.
     let suffix = format!("\n{backlink}");
