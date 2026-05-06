@@ -119,9 +119,7 @@ pub fn TeamBylawsPage(username: String) -> Element {
                             div { class: "group-header__icon group-header__icon--parent",
                                 lucide_dioxus::Star { class: "w-4 h-4 [&>path]:stroke-current" }
                             }
-                            h2 { class: "group-header__title",
-                                "{tr.bylaws_parent_regulations}"
-                            }
+                            h2 { class: "group-header__title", "{tr.bylaws_parent_regulations}" }
                             span { class: "group-header__count", "{parent_docs.len()}" }
                         }
                         div { class: "bylaws-grid",
@@ -143,7 +141,7 @@ pub fn TeamBylawsPage(username: String) -> Element {
 #[component]
 fn BylawCard(doc: ApplyContextDocument, parent: bool) -> Element {
     let tr: SubTeamTranslate = use_translate();
-    let excerpt: String = doc.body.chars().take(240).collect();
+    let excerpt: String = doc.body.to_plain_text().chars().take(240).collect();
     let variant_class = if parent {
         "bylaw-card bylaw-card--parent"
     } else {

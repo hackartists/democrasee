@@ -94,6 +94,7 @@ fn DocItem(
     let title = doc.title.clone();
     let body_preview = doc
         .body
+        .to_plain_text()
         .chars()
         .take(180)
         .collect::<String>();

@@ -1,6 +1,6 @@
 use super::*;
 
-use crate::common::types::{EntityType, InboxPayload, ListResponse, Partition};
+use crate::common::types::{ContentBody, EntityType, InboxPayload, ListResponse, Partition};
 use crate::features::auth::{UserTeam, UserTeamQueryOption};
 use crate::features::posts::models::Team;
 use crate::features::social::pages::member::dto::TeamRole;
@@ -431,7 +431,7 @@ async fn test_doc_update_body_rehashes() {
         },
         response_type: SubTeamDocumentResponse,
     };
-    assert_eq!(updated.body, "v2");
+    assert_eq!(updated.body, ContentBody::html("v2"));
     assert_ne!(updated.body_hash, initial_hash, "hash must change with body");
 }
 
@@ -629,7 +629,7 @@ async fn test_apply_context_returns_form_and_required_docs_for_unauthenticated_c
     assert_eq!(body.required_docs.len(), 1);
     assert_eq!(body.required_docs[0].title, "Bylaws");
     assert!(!body.required_docs[0].body_hash.is_empty());
-    assert_eq!(body.required_docs[0].body, "# Hi");
+    assert_eq!(body.required_docs[0].body, ContentBody::html("# Hi"));
 }
 
 #[tokio::test]

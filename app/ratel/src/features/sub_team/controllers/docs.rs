@@ -55,7 +55,7 @@ pub async fn create_sub_team_doc_handler(
     let cfg = crate::common::CommonConfig::default();
     let cli = cfg.dynamodb();
 
-    if body.body.as_bytes().len() > SUB_TEAM_DOCUMENT_MAX_BODY_BYTES {
+    if body.body.to_html().as_bytes().len() > SUB_TEAM_DOCUMENT_MAX_BODY_BYTES {
         return Err(SubTeamError::DocumentBodyTooLarge.into());
     }
 
@@ -106,7 +106,7 @@ pub async fn update_sub_team_doc_handler(
     }
 
     if let Some(new_body) = body.body {
-        if new_body.as_bytes().len() > SUB_TEAM_DOCUMENT_MAX_BODY_BYTES {
+        if new_body.to_html().as_bytes().len() > SUB_TEAM_DOCUMENT_MAX_BODY_BYTES {
             return Err(SubTeamError::DocumentBodyTooLarge.into());
         }
         // Use the model helper to recompute body_hash + updated_at.

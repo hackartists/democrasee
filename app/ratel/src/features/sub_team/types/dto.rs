@@ -76,7 +76,8 @@ pub struct ReorderFormFieldsRequest {
 pub struct SubTeamDocumentResponse {
     pub id: String,
     pub title: String,
-    pub body: String,
+    #[serde(default)]
+    pub body: ContentBody,
     pub required: bool,
     pub order: i32,
     pub body_hash: String,
@@ -87,7 +88,8 @@ pub struct SubTeamDocumentResponse {
 #[cfg_attr(feature = "server", derive(schemars::JsonSchema, aide::OperationIo))]
 pub struct CreateSubTeamDocumentRequest {
     pub title: String,
-    pub body: String,
+    #[serde(default)]
+    pub body: ContentBody,
     #[serde(default)]
     pub required: bool,
     #[serde(default)]
@@ -100,7 +102,7 @@ pub struct UpdateSubTeamDocumentRequest {
     #[serde(default)]
     pub title: Option<String>,
     #[serde(default)]
-    pub body: Option<String>,
+    pub body: Option<ContentBody>,
     #[serde(default)]
     pub required: Option<bool>,
     #[serde(default)]
@@ -120,7 +122,8 @@ pub struct ReorderDocumentsRequest {
 pub struct ApplyContextDocument {
     pub id: String,
     pub title: String,
-    pub body: String,
+    #[serde(default)]
+    pub body: ContentBody,
     pub body_hash: String,
     pub order: i32,
 }
@@ -322,7 +325,8 @@ pub struct TerminationAck {
 pub struct SubTeamAnnouncementResponse {
     pub id: String,
     pub title: String,
-    pub body: String,
+    #[serde(default)]
+    pub body: ContentBody,
     pub author_user_id: String,
     pub status: SubTeamAnnouncementStatus,
     pub target_type: BroadcastTarget,
@@ -336,7 +340,8 @@ pub struct SubTeamAnnouncementResponse {
 #[cfg_attr(feature = "server", derive(schemars::JsonSchema, aide::OperationIo))]
 pub struct CreateSubTeamAnnouncementRequest {
     pub title: String,
-    pub body: String,
+    #[serde(default)]
+    pub body: ContentBody,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Default)]
@@ -345,7 +350,7 @@ pub struct UpdateSubTeamAnnouncementRequest {
     #[serde(default)]
     pub title: Option<String>,
     #[serde(default)]
-    pub body: Option<String>,
+    pub body: Option<ContentBody>,
 }
 
 #[cfg(feature = "server")]

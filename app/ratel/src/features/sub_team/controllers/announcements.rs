@@ -150,9 +150,9 @@ pub async fn update_announcement_handler(
         changed = true;
     }
 
-    if let Some(body_str) = body.body {
-        updater = updater.with_body(body_str.clone());
-        existing.body = body_str;
+    if let Some(new_body) = body.body {
+        updater = updater.with_body(new_body.clone());
+        existing.body = new_body;
         changed = true;
     }
 

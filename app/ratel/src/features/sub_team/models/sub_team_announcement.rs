@@ -20,7 +20,8 @@ pub struct SubTeamAnnouncement {
     pub announcement_id: String,
 
     pub title: String,
-    pub body: String,
+    #[serde(default)]
+    pub body: ContentBody,
 
     /// Parent-team admin user pk who authored.
     pub author_user_id: String,
@@ -54,10 +55,10 @@ pub enum BroadcastTarget {
 
 #[cfg(feature = "server")]
 impl SubTeamAnnouncement {
-    pub fn new_draft(
+    pub fn new_draft<T: Into<ContentBody>>(
         parent_team_pk: Partition,
         title: String,
-        body: String,
+        body: T,
         author_user_id: String,
     ) -> Self {
         let announcement_id = uuid::Uuid::new_v4().to_string();
@@ -70,7 +71,7 @@ impl SubTeamAnnouncement {
             published_at: None,
             announcement_id,
             title,
-            body,
+            body: body.into(),
             author_user_id,
             status: SubTeamAnnouncementStatus::Draft,
             target_type: BroadcastTarget::AllRecognizedSubTeams,

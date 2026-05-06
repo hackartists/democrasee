@@ -23,8 +23,10 @@ pub struct SubTeamDocument {
     pub updated_at: i64,
 
     pub title: String,
-    /// Plain markdown; rendered read-only in Phase 1.
-    pub body: String,
+    /// Body content; supports legacy raw markdown/HTML strings (auto-upgraded
+    /// to `HtmlContent` on read) and structured `ContentBody` objects.
+    #[serde(default)]
+    pub body: ContentBody,
 
     /// If true, applicants to this team's sub-team program must explicitly
     /// agree to this document before submitting.
@@ -41,10 +43,17 @@ pub struct SubTeamDocument {
 
 #[cfg(feature = "server")]
 impl SubTeamDocument {
-    pub fn new(team_pk: Partition, title: String, body: String, required: bool, order: i32) -> Self {
+    pub fn new<T: Into<ContentBody>>(
+        team_pk: Partition,
+        title: String,
+        body: T,
+        required: bool,
+        order: i32,
+    ) -> Self {
         let doc_id = uuid::Uuid::new_v4().to_string();
         let now = crate::common::utils::time::get_now_timestamp_millis();
-        let body_hash = hash_body(&body);
+        let body = body.into();
+        let body_hash = hash_body(&body.to_html());
         Self {
             pk: team_pk,
             sk: EntityType::SubTeamDocument(doc_id),
@@ -58,17 +67,21 @@ impl SubTeamDocument {
         }
     }
 
-    pub fn update_body(&mut self, body: String) {
-        self.body_hash = hash_body(&body);
+    pub fn update_body<T: Into<ContentBody>>(&mut self, body: T) {
+        let body = body.into();
+        self.body_hash = hash_body(&body.to_html());
         self.body = body;
         self.updated_at = crate::common::utils::time::get_now_timestamp_millis();
     }
 }
 
 #[cfg(feature = "server")]
-fn hash_body(body: &str) -> String {
+/// Hash the canonical HTML projection of the body. For `HtmlContent` rows this
+/// is identity (same string as was stored pre-migration), so existing
+/// `body_hash_snapshot` values in `SubTeamDocAgreement` remain valid.
+fn hash_body(html: &str) -> String {
     use sha2::Digest;
     let mut hasher = sha2::Sha256::new();
-    hasher.update(body.as_bytes());
+    hasher.update(html.as_bytes());
     format!("{:x}", hasher.finalize())
 }

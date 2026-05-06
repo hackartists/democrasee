@@ -40,9 +40,7 @@ fn render_compose(username: String, doc_id: Option<String>) -> Element {
     use_context_provider(move || doc_id_for_ctx.clone());
 
     rsx! {
-        SeoMeta {
-            title: if doc_id.is_some() { "{tr.doc_compose_title_edit}" } else { "{tr.doc_compose_title_new}" },
-        }
+        SeoMeta { title: if doc_id.is_some() { "{tr.doc_compose_title_edit}" } else { "{tr.doc_compose_title_new}" } }
         DocComposeForm { username: username.clone() }
     }
 }
@@ -68,7 +66,7 @@ fn DocComposeForm(username: String) -> Element {
         .unwrap_or_default();
     let initial_body = existing
         .as_ref()
-        .map(|d| d.body.clone())
+        .map(|d| d.body.to_html())
         .unwrap_or_default();
     let initial_required = existing.as_ref().map(|d| d.required).unwrap_or(false);
     let initial_doc_id = doc_id();
@@ -92,7 +90,7 @@ fn DocComposeForm(username: String) -> Element {
                 id,
                 UpdateSubTeamDocumentRequest {
                     title: Some(t),
-                    body: Some(b),
+                    body: Some(b.into()),
                     required: Some(r),
                     ..Default::default()
                 },
@@ -100,7 +98,7 @@ fn DocComposeForm(username: String) -> Element {
         } else {
             handle_save_new.call(CreateSubTeamDocumentRequest {
                 title: t,
-                body: b,
+                body: b.into(),
                 required: r,
                 ..Default::default()
             });
@@ -191,9 +189,7 @@ fn DocComposeForm(username: String) -> Element {
                             lucide_dioxus::Check { class: "w-3 h-3 [&>path]:stroke-current" }
                             "{tr.required_reading}"
                         }
-                        label {
-                            class: "required-row",
-                            "data-on": "{required()}",
+                        label { class: "required-row", "data-on": "{required()}",
                             div { class: "required-row__body",
                                 div { class: "required-row__title",
                                     if required() {
@@ -202,9 +198,7 @@ fn DocComposeForm(username: String) -> Element {
                                         "{tr.doc_compose_required_off}"
                                     }
                                 }
-                                div { class: "required-row__desc",
-                                    "{tr.doc_compose_required_desc}"
-                                }
+                                div { class: "required-row__desc", "{tr.doc_compose_required_desc}" }
                             }
                             input {
                                 r#type: "checkbox",

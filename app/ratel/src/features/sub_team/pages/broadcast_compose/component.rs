@@ -72,7 +72,10 @@ fn ComposeForm(username: String, team_display: String, team_handle: String) -> E
 
     let existing = announcement();
     let initial_title = existing.as_ref().map(|a| a.title.clone()).unwrap_or_default();
-    let initial_body = existing.as_ref().map(|a| a.body.clone()).unwrap_or_default();
+    let initial_body = existing
+        .as_ref()
+        .map(|a| a.body.to_html())
+        .unwrap_or_default();
 
     let mut title: Signal<String> = use_signal(|| initial_title);
     let mut body: Signal<String> = use_signal(|| initial_body);
@@ -90,7 +93,7 @@ fn ComposeForm(username: String, team_display: String, team_handle: String) -> E
                 id,
                 UpdateSubTeamAnnouncementRequest {
                     title: Some(t),
-                    body: Some(b),
+                    body: Some(b.into()),
                 },
             );
         } else {
@@ -100,7 +103,7 @@ fn ComposeForm(username: String, team_display: String, team_handle: String) -> E
             // the caller bumps current_id via the action result.
             handle_save_new.call(CreateSubTeamAnnouncementRequest {
                 title: t,
-                body: b,
+                body: b.into(),
             });
         }
     };

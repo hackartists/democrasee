@@ -48,7 +48,7 @@ pub fn DocAgreementModal(
                     }
                 }
                 div { class: "doc-modal__body",
-                    div { class: "doc-modal__content", "{doc.body}" }
+                    div { class: "doc-modal__content", "{doc.body.to_html()}" }
                     div { class: "doc-modal__notice",
                         lucide_dioxus::Info { class: "w-4 h-4 [&>path]:stroke-current" }
                         div { class: "doc-modal__notice-text", "{tr.doc_modal_notice}" }
