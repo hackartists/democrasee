@@ -226,7 +226,7 @@ fn CommentItem(comment: PostCommentResponse) -> Element {
                         span { class: "comment-item__time", "{time_ago}" }
                     }
                     div { class: "comment-item__text",
-                        for segment in parse_mention_segments(&comment.content) {
+                        for segment in parse_mention_segments(&comment.body.to_html()) {
                             match segment {
                                 ContentSegment::Text(t) => rsx! {
                                     span { "{t}" }
@@ -409,7 +409,7 @@ fn ReplyItem(reply: PostCommentResponse) -> Element {
                     span { class: "comment-item__time", "{time_ago}" }
                 }
                 div { class: "comment-item__text",
-                    for segment in parse_mention_segments(&reply.content) {
+                    for segment in parse_mention_segments(&reply.body.to_html()) {
                         match segment {
                             ContentSegment::Text(t) => rsx! {
                                 span { "{t}" }

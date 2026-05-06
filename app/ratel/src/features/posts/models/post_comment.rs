@@ -13,7 +13,8 @@ pub struct PostComment {
 
     pub updated_at: i64,
 
-    pub content: String,
+    #[serde(alias = "content", default)]
+    pub body: ContentBody,
 
     #[serde(default)]
     pub images: Vec<String>,
@@ -36,9 +37,9 @@ pub struct PostComment {
 
 #[cfg(feature = "server")]
 impl PostComment {
-    pub fn new(
+    pub fn new<T: Into<ContentBody>>(
         pk: Partition,
-        content: String,
+        content: T,
         images: Vec<String>,
         User {
             pk: author_pk,
@@ -55,7 +56,7 @@ impl PostComment {
             pk,
             sk: EntityType::PostComment(uuid.to_string()),
             updated_at: now,
-            content,
+            body: content.into(),
             images,
             author_pk,
             author_display_name,
@@ -93,11 +94,11 @@ impl PostComment {
         PostComment::query(cli, Partition::PostReply(post_pk.to_string()), opt).await
     }
 
-    pub async fn reply(
+    pub async fn reply<T: Into<ContentBody>>(
         cli: &aws_sdk_dynamodb::Client,
         post_pk: Partition,
         parent_comment_sk: EntityType,
-        content: String,
+        content: T,
         images: Vec<String>,
         user: User,
     ) -> Result<Self> {

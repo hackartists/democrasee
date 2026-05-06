@@ -1,5 +1,5 @@
 ---
-sidebar_position: 11
+sidebar_position: 3
 title: Essence Sources
 ---
 
@@ -13,7 +13,7 @@ Your Essence has a control panel — one page where you can see every input feed
 /essence
 ```
 
-Open it any time from the [first-day checklist](./getting-started#first-day-checklist), the in-app navigation, or directly via the URL.
+Open it any time from the [first-day checklist](../getting-started#first-day-checklist), the in-app navigation, or directly via the URL.
 
 ## What `/essence` shows you
 

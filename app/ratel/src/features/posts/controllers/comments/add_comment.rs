@@ -6,7 +6,7 @@ use crate::features::auth::User;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[cfg_attr(feature = "server", derive(schemars::JsonSchema, aide::OperationIo))]
 pub struct AddPostCommentRequest {
-    pub content: String,
+    pub content: ContentBody,
     #[serde(default)]
     pub images: Vec<String>,
 }
@@ -45,7 +45,7 @@ pub async fn add_comment_handler(
         );
         crate::common::utils::mention::create_mention_notifications(
             cli,
-            &comment.content,
+            &comment.body.to_html(),
             &user.pk,
             &user.display_name,
             &cta_url,

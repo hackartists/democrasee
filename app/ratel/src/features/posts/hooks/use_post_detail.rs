@@ -211,7 +211,7 @@ pub fn use_post_detail() -> std::result::Result<UsePostDetail, RenderError> {
         is_submitting_sig.set(true);
         let content = apply_mention_markup(&raw, &tracked_mentions_sig.read());
         let req = AddPostCommentRequest {
-            content,
+            content: content.into(),
             images: vec![],
         };
         let result = add_comment_handler(post_id_for_submit(), req).await;
@@ -280,7 +280,7 @@ pub fn use_post_detail() -> std::result::Result<UsePostDetail, RenderError> {
             let as_entity: EntityType = parent_sk.into();
             let parent_id: crate::PostCommentEntityType = as_entity.into();
             let req = ReplyToPostCommentRequest {
-                content,
+                content: content.into(),
                 images: vec![],
             };
             match reply_to_comment_handler(post_id_for_reply(), parent_id, req).await {

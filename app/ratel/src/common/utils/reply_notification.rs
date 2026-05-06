@@ -219,7 +219,7 @@ async fn fetch_post_comment_thread(
         }
     }
 
-    Some((parent.content, parent.author_pk, author_pks))
+    Some((parent.body.to_plain_text(), parent.author_pk, author_pks))
 }
 
 #[cfg(feature = "server")]

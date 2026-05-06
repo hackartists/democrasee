@@ -1,5 +1,5 @@
 ---
-sidebar_position: 10
+sidebar_position: 2
 title: My Essence
 ---
 
@@ -11,7 +11,7 @@ Your Essence isn't an abstract concept — it's a real surface in the app, with 
 
 ## Why your Essence has its own pages
 
-The [intro chapter](./) describes Essence as the personal knowledge base that grows as you participate. These pages are where that idea becomes tangible: one tab plugs Essence into the AI you already use; the other turns the activity behind your Essence into a visible level and a set of upgradeable skills.
+The [Essence overview](./) describes Essence as the personal knowledge base that grows as you participate. These pages are where that idea becomes tangible: one tab plugs Essence into the AI you already use; the other turns the activity behind your Essence into a visible level and a set of upgradeable skills.
 
 ## <img src={useBaseUrl('/img/icons/grid.svg')} width="20" height="20" alt="My AI" style={{verticalAlign: 'middle'}} /> My AI — `/my-ai`
 
@@ -50,7 +50,7 @@ The **Setup guide** below the capabilities has a tabbed walkthrough — one tab 
 - **Cursor** — `Settings → Cursor Settings → MCP → Add new server (HTTP / Streamable)`.
 - **Generic JSON** — A `curl` smoke-test plus the JSON-RPC 2.0 / SSE shape for any MCP SDK (Python, TypeScript, Rust).
 
-Each tab walks you through three numbered steps, with copy-ready commands and JSON snippets. If you've already read the [AI Connect chapter](./ai-connect), this is the same surface — `/my-ai` is the in-app destination for it.
+Each tab walks you through three numbered steps, with copy-ready commands and JSON snippets — `/my-ai` is the in-app destination for the same MCP setup workflow.
 
 ## <img src={useBaseUrl('/img/icons/award.svg')} width="20" height="20" alt="Character" style={{verticalAlign: 'middle'}} /> Character — `/me/character`
 

@@ -340,10 +340,10 @@ impl Post {
         Ok(())
     }
 
-    pub async fn comment(
+    pub async fn comment<T: Into<ContentBody>>(
         cli: &aws_sdk_dynamodb::Client,
         post_pk: Partition,
-        content: String,
+        content: T,
         images: Vec<String>,
         user: crate::features::auth::User,
     ) -> Result<PostComment> {

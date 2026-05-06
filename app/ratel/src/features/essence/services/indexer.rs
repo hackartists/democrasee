@@ -48,13 +48,14 @@ pub async fn index_post_comment(
     cli: &aws_sdk_dynamodb::Client,
     comment: &PostComment,
 ) -> Result<()> {
-    let title = summarize(&comment.content, 80);
+    let plain_text = comment.body.to_plain_text();
+    let title = summarize(&plain_text, 80);
     let source_path = format!(
         "Ratel comment · {} / {}",
         strip_prefix(&comment.pk.to_string()),
         strip_prefix(&comment.sk.to_string())
     );
-    let word_count = comment.content.split_whitespace().count() as i64;
+    let word_count = plain_text.split_whitespace().count() as i64;
 
     Essence::upsert_for_source(
         cli,

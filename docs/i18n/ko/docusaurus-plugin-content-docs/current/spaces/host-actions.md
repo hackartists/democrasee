@@ -24,7 +24,7 @@ import useBaseUrl from '@docusaurus/useBaseUrl';
 
 타일을 선택하면 오른쪽에 빈 카드의 라이브 **미리보기** 가 나타나고, **만들기(Create)** 를 누르면 새 액션의 편집기 URL 로 바로 이동합니다 — 이후는 거기서 채워 넣으면 됩니다.
 
-> **Meet 에 대해.** 다섯 번째 액션 유형인 **Meet (RSVP 가 가능한 일정 이벤트)** 는 플랫폼에 존재하고 자체 뷰어 `/spaces/:space_id/actions/meets/:meet_id` 도 있지만, 호스트 편집기 진입점은 *(예정)* 입니다. 오늘은 [MCP API](../ai-connect#-스페이스-안의-액션) 의 `create_meet` 도구로 Meet 를 만들고, 다른 액션처럼 참여자 카루셀에 노출시키는 방식으로 사용합니다.
+> **Meet 에 대해.** 다섯 번째 액션 유형인 **Meet (RSVP 가 가능한 일정 이벤트)** 는 플랫폼에 존재하고 자체 뷰어 `/spaces/:space_id/actions/meets/:meet_id` 도 있지만, 호스트 편집기 진입점은 *(예정)* 입니다. 오늘은 [MCP API](../essence/my-essence#-my-ai--my-ai) 의 `create_meet` 도구로 Meet 를 만들고, 다른 액션처럼 참여자 카루셀에 노출시키는 방식으로 사용합니다.
 
 ## 편집기 URL 의 구조
 
@@ -117,7 +117,7 @@ Configuration 카드는 공통 섹션 — 일정, 참여 및 보상, 선행 액�
 
 URL: `/spaces/:space_id/actions/meets/:meet_id` (관리자 뷰)
 
-라이브스트림 · 화상 통화 · 워크숍 · 오프라인 모임 같은 일정 이벤트입니다. 이 URL 의 참여자 뷰는 라이브이지만, 만들기 모달의 호스트 편집기 진입점은 *(예정)* 입니다. 오늘 시점에 Meet 가 필요한 호스트는 MCP API 의 `create_meet` 도구를 사용하세요 ([AI 연결](../ai-connect#-스페이스-안의-액션) 참고).
+라이브스트림 · 화상 통화 · 워크숍 · 오프라인 모임 같은 일정 이벤트입니다. 이 URL 의 참여자 뷰는 라이브이지만, 만들기 모달의 호스트 편집기 진입점은 *(예정)* 입니다. 오늘 시점에 Meet 가 필요한 호스트는 MCP API 의 `create_meet` 도구를 사용하세요 ([MCP 연결](../essence/my-essence#-my-ai--my-ai) 참고).
 
 ## 팁
 

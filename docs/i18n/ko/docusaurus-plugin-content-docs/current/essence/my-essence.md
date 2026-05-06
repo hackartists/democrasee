@@ -1,5 +1,5 @@
 ---
-sidebar_position: 10
+sidebar_position: 2
 title: 내 Essence
 ---
 
@@ -11,7 +11,7 @@ Essence 는 추상적인 개념이 아닙니다 — 앱 안에 두 개의 전용
 
 ## 왜 Essence 에 별도 페이지가 있는가
 
-[소개 챕터](./)에서 Essence 는 "참여할수록 자라는 개인 지식 베이스"로 설명했습니다. 이 두 페이지는 그 개념이 손에 잡히는 형태로 드러나는 곳이에요. 한 탭은 Essence 를 평소 쓰는 AI 에 꽂아주고, 다른 탭은 그 Essence 를 만든 활동을 눈에 보이는 레벨과 업그레이드 가능한 스킬로 바꿉니다.
+[에센스 개요](./)에서 Essence 는 "참여할수록 자라는 개인 지식 베이스"로 설명했습니다. 이 두 페이지는 그 개념이 손에 잡히는 형태로 드러나는 곳이에요. 한 탭은 Essence 를 평소 쓰는 AI 에 꽂아주고, 다른 탭은 그 Essence 를 만든 활동을 눈에 보이는 레벨과 업그레이드 가능한 스킬로 바꿉니다.
 
 ## <img src={useBaseUrl('/img/icons/grid.svg')} width="20" height="20" alt="My AI" style={{verticalAlign: 'middle'}} /> My AI — `/my-ai`
 
@@ -50,7 +50,7 @@ https://ratel.foundation/mcp/<your-token>
 - **Cursor** — `Settings → Cursor Settings → MCP → Add new server (HTTP / Streamable)`.
 - **Generic JSON (일반 JSON)** — `curl` 스모크 테스트 + Python · TypeScript · Rust 등 모든 MCP SDK 가 사용하는 JSON-RPC 2.0 / SSE 형식.
 
-각 탭은 번호가 매겨진 세 단계로 이뤄져 있고, 그대로 복사해 쓸 수 있는 명령어와 JSON 스니펫이 들어 있습니다. [AI 연결 챕터](./ai-connect)를 이미 읽으셨다면 같은 화면입니다 — `/my-ai` 는 그 내용의 인앱 도착지입니다.
+각 탭은 번호가 매겨진 세 단계로 이뤄져 있고, 그대로 복사해 쓸 수 있는 명령어와 JSON 스니펫이 들어 있습니다 — `/my-ai` 는 같은 MCP 설정 워크플로우의 인앱 도착지입니다.
 
 ## <img src={useBaseUrl('/img/icons/award.svg')} width="20" height="20" alt="Character" style={{verticalAlign: 'middle'}} /> Character — `/me/character`
 

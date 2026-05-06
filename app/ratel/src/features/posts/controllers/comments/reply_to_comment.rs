@@ -5,7 +5,7 @@ use crate::features::auth::User;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[cfg_attr(feature = "server", derive(schemars::JsonSchema, aide::OperationIo))]
 pub struct ReplyToPostCommentRequest {
-    pub content: String,
+    pub content: ContentBody,
     #[serde(default)]
     pub images: Vec<String>,
 }
@@ -48,7 +48,7 @@ pub async fn reply_to_comment_handler(
     // Send mention notifications
     crate::common::utils::mention::create_mention_notifications(
         cli,
-        &comment.content,
+        &comment.body.to_html(),
         &user.pk,
         &user.display_name,
         &cta_url,
@@ -67,7 +67,7 @@ pub async fn reply_to_comment_handler(
                     parent_comment_sk: parent_sk_str,
                     replier_pk: user.pk.to_string(),
                     replier_name: user.display_name.clone(),
-                    reply_content: comment.content.clone(),
+                    reply_content: comment.body.to_plain_text(),
                     cta_url,
                 },
             );
