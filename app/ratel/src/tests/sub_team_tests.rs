@@ -1872,7 +1872,7 @@ async fn seed_team_post(
         pk: Partition::Feed(post_id),
         sk: EntityType::Post,
         title: "T".to_string(),
-        html_contents: "B".to_string(),
+        body: crate::common::ContentBody::html("B"),
         created_at: created,
         updated_at: created,
         status,

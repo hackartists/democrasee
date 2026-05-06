@@ -25,6 +25,47 @@ async fn test_create_post_without_auth() {
     assert_ne!(status, 200, "unauthenticated request should fail");
 }
 
+/// Legacy rows stored `html_contents` (a plain string) instead of the new
+/// `body` (a tagged map).  The custom `ContentBody` deserializer must
+/// accept both shapes; this unit test verifies that without a DynamoDB
+/// round-trip.
+#[test]
+fn legacy_html_contents_loads_as_html_content_body_unit() {
+    use crate::common::ContentBody;
+    use aws_sdk_dynamodb::types::AttributeValue;
+
+    let uuid = uuid::Uuid::new_v4().to_string();
+    let pk = format!("FEED#{}", uuid);
+
+    let item: std::collections::HashMap<String, AttributeValue> = [
+        ("pk".to_string(), AttributeValue::S(pk)),
+        ("sk".to_string(), AttributeValue::S("POST".to_string())),
+        ("title".to_string(), AttributeValue::S("Legacy".to_string())),
+        ("html_contents".to_string(), AttributeValue::S("<p>legacy body</p>".to_string())),
+        ("post_type".to_string(), AttributeValue::N("1".to_string())),
+        ("status".to_string(), AttributeValue::S("Published".to_string())),
+        ("user_pk".to_string(), AttributeValue::S("USER#legacy".to_string())),
+        ("shares".to_string(), AttributeValue::N("0".to_string())),
+        ("likes".to_string(), AttributeValue::N("0".to_string())),
+        ("comments".to_string(), AttributeValue::N("0".to_string())),
+        ("reports".to_string(), AttributeValue::N("0".to_string())),
+        ("created_at".to_string(), AttributeValue::N("0".to_string())),
+        ("updated_at".to_string(), AttributeValue::N("0".to_string())),
+        ("author_display_name".to_string(), AttributeValue::S("x".to_string())),
+        ("author_profile_url".to_string(), AttributeValue::S("x".to_string())),
+        ("author_username".to_string(), AttributeValue::S("x".to_string())),
+        ("author_type".to_string(), AttributeValue::N("1".to_string())),
+        ("urls".to_string(), AttributeValue::L(vec![])),
+        ("categories".to_string(), AttributeValue::L(vec![])),
+    ].into_iter().collect();
+
+    let post: crate::features::posts::models::Post =
+        serde_dynamo::from_item(item).expect("failed to deserialize legacy Post");
+    assert_eq!(post.body, ContentBody::HtmlContent("<p>legacy body</p>".into()));
+}
+
+/// Integration test: write a legacy `html_contents` row directly to DynamoDB
+/// and verify the new model reads it back as `ContentBody::HtmlContent`.
 #[tokio::test]
 async fn legacy_html_contents_string_loads_as_html_content_body() {
     use crate::common::ContentBody;
@@ -33,31 +74,32 @@ async fn legacy_html_contents_string_loads_as_html_content_body() {
     let ctx = TestContext::setup().await;
     let cli = &ctx.ddb;
     let table = std::env::var("DYNAMO_TABLE_PREFIX").unwrap() + "-main";
-    let pk = format!("POST#{}", uuid::Uuid::new_v4());
+    let uuid = uuid::Uuid::new_v4().to_string();
+    let pk = format!("FEED#{}", uuid);
     let sk = "POST".to_string();
 
     // Build a legacy item — `html_contents` (string) instead of `body` (map).
-    let item = serde_dynamo::to_item(serde_json::json!({
-        "pk": pk,
-        "sk": sk,
-        "title": "Legacy",
-        "html_contents": "<p>legacy body</p>",
-        "post_type": 1,
-        "status": "Published",
-        "user_pk": "USER#legacy",
-        "shares": 0,
-        "likes": 0,
-        "comments": 0,
-        "reports": 0,
-        "created_at": 0,
-        "updated_at": 0,
-        "author_display_name": "x",
-        "author_profile_url": "x",
-        "author_username": "x",
-        "author_type": 1,
-        "urls": [],
-        "categories": [],
-    })).unwrap();
+    let item: std::collections::HashMap<String, AttributeValue> = [
+        ("pk".to_string(), AttributeValue::S(pk.clone())),
+        ("sk".to_string(), AttributeValue::S(sk.clone())),
+        ("title".to_string(), AttributeValue::S("Legacy".to_string())),
+        ("html_contents".to_string(), AttributeValue::S("<p>legacy body</p>".to_string())),
+        ("post_type".to_string(), AttributeValue::N("1".to_string())),
+        ("status".to_string(), AttributeValue::S("Published".to_string())),
+        ("user_pk".to_string(), AttributeValue::S("USER#legacy".to_string())),
+        ("shares".to_string(), AttributeValue::N("0".to_string())),
+        ("likes".to_string(), AttributeValue::N("0".to_string())),
+        ("comments".to_string(), AttributeValue::N("0".to_string())),
+        ("reports".to_string(), AttributeValue::N("0".to_string())),
+        ("created_at".to_string(), AttributeValue::N("0".to_string())),
+        ("updated_at".to_string(), AttributeValue::N("0".to_string())),
+        ("author_display_name".to_string(), AttributeValue::S("x".to_string())),
+        ("author_profile_url".to_string(), AttributeValue::S("x".to_string())),
+        ("author_username".to_string(), AttributeValue::S("x".to_string())),
+        ("author_type".to_string(), AttributeValue::N("1".to_string())),
+        ("urls".to_string(), AttributeValue::L(vec![])),
+        ("categories".to_string(), AttributeValue::L(vec![])),
+    ].into_iter().collect();
 
     cli.put_item()
         .table_name(&table)
@@ -75,7 +117,8 @@ async fn legacy_html_contents_string_loads_as_html_content_body() {
         .await
         .unwrap();
 
+    let retrieved_item = res.item.unwrap();
     let post: crate::features::posts::models::Post =
-        serde_dynamo::from_item(res.item.unwrap()).unwrap();
+        serde_dynamo::from_item(retrieved_item).expect("failed to deserialize Post from DynamoDB item");
     assert_eq!(post.body, ContentBody::HtmlContent("<p>legacy body</p>".into()));
 }
