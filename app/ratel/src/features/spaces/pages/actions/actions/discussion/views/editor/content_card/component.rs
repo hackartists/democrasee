@@ -33,7 +33,7 @@ pub fn ContentCard() -> Element {
     let discussion_id = ctx.discussion_id;
 
     let initial_post = ctx.discussion().post.clone();
-    let initial_html = initial_post.html_contents.clone();
+    let initial_html = initial_post.body.to_html();
     let initial_title = initial_post.title.clone();
     let initial_files = initial_post.files.clone();
 
@@ -56,7 +56,7 @@ pub fn ContentCard() -> Element {
         spawn(async move {
             let req = UpdateDiscussionRequest {
                 title: None,
-                html_contents: Some(current.clone()),
+                html_contents: Some(ContentBody::html(current.clone())),
                 category_name: None,
                 files: None,
             };

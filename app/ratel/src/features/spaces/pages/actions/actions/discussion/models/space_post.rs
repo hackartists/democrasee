@@ -5,7 +5,7 @@ use crate::features::spaces::pages::actions::actions::discussion::models::{
     SpacePostComment, SpacePostCommentLike,
 };
 
-#[derive(Debug, Default, Clone, Serialize, Deserialize, DynamoEntity, PartialEq, Eq)]
+#[derive(Debug, Default, Clone, Serialize, Deserialize, DynamoEntity, PartialEq)]
 #[cfg_attr(feature = "server", derive(schemars::JsonSchema, aide::OperationIo))]
 pub struct SpacePost {
     #[dynamo(index = "gsi3", name = "find_by_space_ordered", pk)]
@@ -20,8 +20,8 @@ pub struct SpacePost {
 
     #[serde(default)]
     pub title: String,
-    #[serde(default)]
-    pub html_contents: String,
+    #[serde(alias = "html_contents", default)]
+    pub body: ContentBody,
     #[dynamo(index = "gsi6", name = "find_by_category", order = 2, pk)]
     #[serde(default)]
     pub category_name: String,
@@ -38,10 +38,10 @@ pub struct SpacePost {
 
 #[cfg(feature = "server")]
 impl SpacePost {
-    pub fn new(
+    pub fn new<T: Into<ContentBody>>(
         space_pk: SpacePartition,
         title: String,
-        html_contents: String,
+        html_contents: T,
         category_name: String,
         author: &crate::common::models::space::SpaceUser,
         _started_at: Option<i64>,
@@ -56,7 +56,7 @@ impl SpacePost {
             created_at: now,
             updated_at: now,
             title,
-            html_contents,
+            body: html_contents.into(),
             category_name,
             comments: 0,
             user_pk: author.pk.clone(),
@@ -78,11 +78,11 @@ impl SpacePost {
         )
     }
 
-    pub async fn comment(
+    pub async fn comment<T: Into<ContentBody>>(
         cli: &aws_sdk_dynamodb::Client,
         space_pk: SpacePartition,
         space_post_pk: SpacePostPartition,
-        content: String,
+        content: T,
         images: Vec<String>,
         author: &crate::common::models::space::SpaceUser,
     ) -> crate::features::spaces::pages::actions::actions::discussion::Result<SpacePostComment>

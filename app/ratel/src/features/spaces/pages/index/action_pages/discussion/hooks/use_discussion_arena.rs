@@ -169,7 +169,7 @@ impl UseDiscussionArena {
             .read()
             .get(&comment.sk.to_string())
             .cloned()
-            .unwrap_or_else(|| comment.content.clone())
+            .unwrap_or_else(|| comment.body.to_plain_text())
     }
 
     pub fn is_deleted(&self, comment: &DiscussionCommentResponse) -> bool {
@@ -381,10 +381,10 @@ pub fn use_discussion_arena(
             if let Some(parent) = parent {
                 let replies = thread_replies();
                 let parent_tuple =
-                    (parent.author_pk.to_string(), parent.content.clone());
+                    (parent.author_pk.to_string(), parent.body.to_plain_text());
                 let reply_tuples: Vec<(String, String)> = replies
                     .iter()
-                    .map(|r| (r.author_pk.to_string(), r.content.clone()))
+                    .map(|r| (r.author_pk.to_string(), r.body.to_plain_text()))
                     .collect();
 
                 let primary_ref = (parent_tuple.0.as_str(), parent_tuple.1.as_str());
@@ -409,7 +409,7 @@ pub fn use_discussion_arena(
                     .iter()
                     .filter(|p| !base_sks.contains(&p.sk.to_string())),
             )
-            .map(|c| (c.author_pk.to_string(), c.content.clone()))
+            .map(|c| (c.author_pk.to_string(), c.body.to_plain_text()))
             .collect();
         let refs: Vec<(&str, &str)> = tuples
             .iter()
@@ -481,7 +481,7 @@ pub fn use_discussion_arena(
             .insert(sk_str.clone(), new_content.clone());
 
         let req = UpdateCommentRequest {
-            content: new_content,
+            content: ContentBody::html(new_content),
             images: None,
         };
         match update_comment(space_id(), discussion_id(), target_sk, req).await {
@@ -536,7 +536,10 @@ pub fn use_discussion_arena(
     });
 
     let add_comment_action = use_action(move |content: String, images: Vec<String>| async move {
-        let req = AddCommentRequest { content, images };
+        let req = AddCommentRequest {
+            content: ContentBody::html(content),
+            images,
+        };
         match add_comment(space_id(), discussion_id(), req).await {
             Ok(_) => {
                 comments_query.refresh();
@@ -562,7 +565,10 @@ pub fn use_discussion_arena(
                         return Ok::<(), crate::common::Error>(());
                     }
                 };
-            let req = ReplyCommentRequest { content, images };
+            let req = ReplyCommentRequest {
+                content: ContentBody::html(content),
+                images,
+            };
             match reply_comment(space_id(), discussion_id(), comment_sk_entity, req).await {
                 Ok(_) => {
                     comments_query.refresh();

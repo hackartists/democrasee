@@ -274,7 +274,7 @@ async fn match_discussion(
     // — just no longer reply-blind.
     let item_id = filter.item_id.clone();
     iter_post_comments(cli, post_pk, |row| {
-        if row.content.to_lowercase().contains(&needle) {
+        if row.body.to_plain_text().to_lowercase().contains(&needle) {
             matched_count += 1;
             let user_key = row.author_pk.to_string();
             matched.insert(user_key.clone());

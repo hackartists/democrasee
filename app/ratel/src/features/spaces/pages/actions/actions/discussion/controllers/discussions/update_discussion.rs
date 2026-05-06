@@ -7,7 +7,7 @@ pub struct UpdateDiscussionRequest {
     #[serde(default)]
     pub title: Option<String>,
     #[serde(default)]
-    pub html_contents: Option<String>,
+    pub html_contents: Option<ContentBody>,
     #[serde(default)]
     pub category_name: Option<String>,
     #[serde(default)]
@@ -46,9 +46,9 @@ pub async fn update_discussion(
         action_updater = action_updater.with_title(title);
         update_action = true;
     }
-    if let Some(html_contents) = req.html_contents {
-        updater = updater.with_html_contents(html_contents.clone());
-        action_updater = action_updater.with_description(html_contents);
+    if let Some(content_body) = req.html_contents {
+        action_updater = action_updater.with_description(content_body.to_html());
+        updater = updater.with_body(content_body);
         update_action = true;
     }
     if let Some(category_name) = &req.category_name {

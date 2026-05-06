@@ -136,7 +136,7 @@ pub fn DiscussionArenaPage(
             SpacePostCommentEntityType::try_from(c.sk.clone())
                 .ok()
                 .filter(|e| e.0 == thread_id)
-                .map(|_| (c.author_display_name.clone(), c.content.clone()))
+                .map(|_| (c.author_display_name.clone(), c.body.to_plain_text()))
         })
     });
 
@@ -354,11 +354,11 @@ pub fn DiscussionArenaPage(
                             }
                         }
 
-                        if !post.html_contents.is_empty() {
+                        if !post.body.is_empty() {
                             div { class: "disc-body",
                                 div {
                                     class: "disc-body__content",
-                                    dangerous_inner_html: "{post.html_contents}",
+                                    dangerous_inner_html: post.body.to_html(),
                                 }
                             }
                         }
@@ -477,7 +477,7 @@ pub fn DiscussionArenaPage(
                                 on_submit: move |_| on_submit(()),
                                 placeholder: if in_thread { tr.reply_placeholder.to_string() } else { tr.comment_placeholder.to_string() },
                                 disabled: comment_text().trim().is_empty()
-                                                                    && pending_images.read().is_empty(),
+                                                                                                    && pending_images.read().is_empty(),
                                 on_mention_query_change,
                                 on_composer_focus,
                                 priority_user_pks: top_priority,
@@ -714,8 +714,8 @@ fn CommentCardBody(
     let comment_sk = use_signal(|| comment.sk.clone());
     let mut menu_open = use_signal(|| false);
     let mut editing = use_signal(|| false);
-    let mut edit_text = use_signal(|| comment.content.clone());
-    let original_content = comment.content.clone();
+    let mut edit_text = use_signal(|| comment.body.to_plain_text());
+    let original_content = comment.body.to_plain_text();
     let time_ago = format_time_ago(comment.created_at);
 
     let comment_for_like = comment.clone();

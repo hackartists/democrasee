@@ -5,7 +5,7 @@ use crate::features::spaces::pages::actions::models::SpaceAction;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[cfg_attr(feature = "server", derive(rmcp::schemars::JsonSchema))]
 pub struct AddCommentRequest {
-    pub content: String,
+    pub content: ContentBody,
     #[serde(default)]
     pub images: Vec<String>,
 }
@@ -110,7 +110,7 @@ pub async fn add_comment(
 
         crate::common::utils::mention::create_mention_notifications(
             cli,
-            &comment.content,
+            &comment.body.to_html(),
             &member.pk,
             &member.display_name,
             &cta_url,

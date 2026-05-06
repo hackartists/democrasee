@@ -1,7 +1,7 @@
 use super::*;
 use crate::common::models::space::{SpaceCommon, SpaceUser};
 use crate::common::types::{
-    EntityType, Partition, SpacePublishState, SpaceStatus, SpaceVisibility,
+    ContentBody, EntityType, Partition, SpacePublishState, SpaceStatus, SpaceVisibility,
 };
 use crate::features::spaces::pages::actions::actions::discussion::{
     SpacePost, SpacePostComment, ROOT_PARENT,
@@ -75,7 +75,7 @@ async fn seed_discussion_with_comments(
         comment.space_pk = Some(space_pk.clone());
         comment.created_at = *ts;
         comment.updated_at = *ts;
-        comment.content = format!("comment-{}", ts);
+        comment.body = ContentBody::html(format!("comment-{}", ts));
         comment.likes_align = format!("{:020}", 0);
         comment.updated_at_align = format!("{:020}", *ts);
         comment.parent_id_for_likes = ROOT_PARENT.to_string();

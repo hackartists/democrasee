@@ -236,7 +236,7 @@ pub async fn hydrate_records(
                     if let Ok(Some(comment)) =
                         SpacePostComment::get(cli, post_pk, Some(comment_sk)).await
                     {
-                        row.comment_text = comment.content;
+                        row.comment_text = comment.body.to_plain_text();
                         // Override actor info from the comment's
                         // denormalized author ONLY when the space is
                         // not anonymous — otherwise the comment fields

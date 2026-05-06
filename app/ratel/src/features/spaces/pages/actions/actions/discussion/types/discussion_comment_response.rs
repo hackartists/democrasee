@@ -1,6 +1,6 @@
 use crate::features::spaces::pages::actions::actions::discussion::*;
 
-#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq)]
 pub struct DiscussionCommentResponse {
     pub pk: Partition,
     pub sk: EntityType,
@@ -8,7 +8,8 @@ pub struct DiscussionCommentResponse {
     pub updated_at: i64,
     pub created_at: i64,
 
-    pub content: String,
+    #[serde(alias = "content", default)]
+    pub body: ContentBody,
     #[serde(default)]
     pub images: Vec<String>,
 
@@ -33,7 +34,7 @@ impl From<(SpacePostComment, bool)> for DiscussionCommentResponse {
             sk: comment.sk,
             created_at: comment.created_at,
             updated_at: comment.updated_at,
-            content: comment.content,
+            body: comment.body,
             images: comment.images,
             likes: comment.likes,
             replies: comment.replies,
@@ -55,7 +56,7 @@ impl From<SpacePostComment> for DiscussionCommentResponse {
             sk: comment.sk,
             created_at: comment.created_at,
             updated_at: comment.updated_at,
-            content: comment.content,
+            body: comment.body,
             images: comment.images,
             likes: comment.likes,
             replies: comment.replies,

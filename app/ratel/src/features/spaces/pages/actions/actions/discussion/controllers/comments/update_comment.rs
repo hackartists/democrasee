@@ -4,7 +4,7 @@ use crate::features::spaces::pages::actions::models::SpaceAction;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UpdateCommentRequest {
-    pub content: String,
+    pub content: ContentBody,
     #[serde(default)]
     pub images: Option<Vec<String>>,
 }
@@ -77,7 +77,7 @@ pub async fn update_comment(
     // ordering pinned to `created_at`, which matches user expectations when
     // they edit their own comment.
     let mut updater = SpacePostComment::updater(&space_post_pk, &comment_sk_entity)
-        .with_content(req.content)
+        .with_body(req.content)
         .with_updated_at(now);
 
     if let Some(images) = req.images {

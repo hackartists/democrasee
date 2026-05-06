@@ -4,7 +4,7 @@ use crate::features::spaces::pages::actions::models::SpaceAction;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ReplyCommentRequest {
-    pub content: String,
+    pub content: ContentBody,
     #[serde(default)]
     pub images: Vec<String>,
 }
@@ -113,7 +113,7 @@ pub async fn reply_comment(
     // Send mention notifications
     crate::common::utils::mention::create_mention_notifications(
         cli,
-        &comment.content,
+        &comment.body.to_html(),
         &member.pk,
         &member.display_name,
         &cta_url,
@@ -132,7 +132,7 @@ pub async fn reply_comment(
                 parent_comment_sk: parent_sk_str,
                 replier_pk: member.pk.to_string(),
                 replier_name: member.display_name.clone(),
-                reply_content: comment.content.clone(),
+                reply_content: comment.body.to_plain_text(),
                 cta_url,
             },
         );

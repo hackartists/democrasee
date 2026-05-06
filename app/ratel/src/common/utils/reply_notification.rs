@@ -258,5 +258,5 @@ async fn fetch_space_discussion_thread(
             }
         };
 
-    Some((parent.content, parent.author_pk, author_pks))
+    Some((parent.body.to_plain_text(), parent.author_pk, author_pks))
 }

@@ -67,7 +67,7 @@ pub async fn handle_ai_moderator_event(post: SpacePost) -> Result<()> {
 
     let recent_replies: Vec<String> = comments
         .iter()
-        .map(|c| format!("[{}]: {}", c.author_display_name, c.content))
+        .map(|c| format!("[{}]: {}", c.author_display_name, c.body.to_plain_text()))
         .collect();
 
     // Fetch material context from Qdrant (best-effort)

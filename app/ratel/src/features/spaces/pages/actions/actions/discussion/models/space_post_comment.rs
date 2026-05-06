@@ -22,8 +22,8 @@ pub struct SpacePostComment {
     pub created_at: i64,
     #[serde(default)]
     pub updated_at: i64,
-    #[serde(default)]
-    pub content: String,
+    #[serde(alias = "content", default)]
+    pub body: ContentBody,
 
     #[serde(default)]
     pub images: Vec<String>,
@@ -59,10 +59,10 @@ pub struct SpacePostComment {
 
 #[cfg(feature = "server")]
 impl SpacePostComment {
-    pub fn new(
+    pub fn new<T: Into<ContentBody>>(
         space_pk: SpacePartition,
         space_post_sk: SpacePostPartition,
-        content: String,
+        content: T,
         images: Vec<String>,
         author: &crate::common::models::space::SpaceUser,
     ) -> Self {
@@ -79,7 +79,7 @@ impl SpacePostComment {
             space_pk: Some(space_pk.into()),
             created_at: now,
             updated_at: now,
-            content,
+            body: content.into(),
             images,
             author_pk: author.pk.clone(),
             author_display_name: author.display_name.clone(),
@@ -115,12 +115,12 @@ impl SpacePostComment {
         SpacePostComment::find_replies_by_likes(cli, parent_comment_id, opt).await
     }
 
-    pub async fn reply(
+    pub async fn reply<T: Into<ContentBody>>(
         cli: &aws_sdk_dynamodb::Client,
         space_pk: SpacePartition,
         space_post_pk: SpacePostPartition,
         parent_comment_sk: EntityType,
-        content: String,
+        content: T,
         images: Vec<String>,
         author: &crate::common::models::space::SpaceUser,
     ) -> crate::features::spaces::pages::actions::actions::discussion::Result<Self> {

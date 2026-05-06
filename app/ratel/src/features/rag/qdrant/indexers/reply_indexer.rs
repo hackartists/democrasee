@@ -4,7 +4,7 @@ use crate::features::spaces::pages::actions::actions::discussion::SpacePostComme
 
 /// Index a SpacePostComment into Qdrant.
 pub async fn index_reply(comment: SpacePostComment) -> Result<()> {
-    if comment.content.is_empty() {
+    if comment.body.is_empty() {
         return Ok(());
     }
 

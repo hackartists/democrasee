@@ -46,7 +46,7 @@ impl ReplyPayload {
             space_id,
             comment_id: comment.sk.clone().into(),
             discussion_id: comment.pk.clone().into(),
-            content: comment.content.clone(),
+            content: comment.body.to_plain_text(),
             author: comment.author_display_name.clone(),
         }
     }

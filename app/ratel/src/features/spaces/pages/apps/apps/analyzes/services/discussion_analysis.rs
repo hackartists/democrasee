@@ -155,8 +155,8 @@ async fn load_matched_comments(
     // pipeline ingests every text the matched users contributed —
     // not just root comments.
     services::intersection::iter_post_comments(cli, post_pk, |row| {
-        if matched_users.contains(&row.author_pk.to_string()) && !row.content.trim().is_empty() {
-            comments.push(row.content);
+        if matched_users.contains(&row.author_pk.to_string()) && !row.body.is_empty() {
+            comments.push(row.body.to_plain_text());
         }
     })
     .await?;
