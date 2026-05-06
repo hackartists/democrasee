@@ -1,3 +1,4 @@
+use crate::common::types::ContentBody;
 use crate::features::posts::controllers::dto::*;
 use crate::features::posts::models::PostArtworkMetadata;
 use crate::features::posts::types::*;
@@ -10,7 +11,7 @@ pub fn PostContent(
     post_type: PostType,
     urls: Vec<String>,
     title: String,
-    html_contents: String,
+    body: ContentBody,
     artwork_metadata: Vec<PostArtworkMetadata>,
 ) -> Element {
     if post_type == PostType::Artwork {
@@ -47,14 +48,14 @@ pub fn PostContent(
                         if !artwork_metadata.is_empty() {
                             ArtworkMetadataSection { metadata: artwork_metadata.clone() }
                         }
-                        if !html_contents.is_empty() {
+                        if !body.is_empty() {
                             div { class: "flex flex-col gap-2",
                                 h2 { class: "text-lg font-semibold text-text-primary",
                                     "Description"
                                 }
                                 RichEditor {
                                     class: "w-full bg-transparent",
-                                    content: html_contents.clone(),
+                                    content: body.to_html(),
                                     editable: false,
                                 }
                             }
@@ -70,7 +71,7 @@ pub fn PostContent(
                 div { class: "flex flex-col gap-5 w-full",
                     RichEditor {
                         class: "w-full bg-transparent",
-                        content: html_contents.clone(),
+                        content: body.to_html(),
                         editable: false,
                     }
                     if let Some(url) = image_url {

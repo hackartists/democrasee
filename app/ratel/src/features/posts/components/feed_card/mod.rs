@@ -101,7 +101,7 @@ pub fn FeedCard(
 fn FeedBody(post: PostResponse, on_edit: Option<EventHandler<MouseEvent>>) -> Element {
     let PostResponse {
         title,
-        html_contents,
+        body,
         author_display_name,
         author_profile_url,
         author_type,
@@ -134,7 +134,7 @@ fn FeedBody(post: PostResponse, on_edit: Option<EventHandler<MouseEvent>>) -> El
             h2 { class: "mt-2 px-5 w-full truncate font-bold align-middle text-xl/[25px] tracking-[0.5px] text-text-primary",
                 {title}
             }
-            FeedContents { contents: html_contents, urls }
+            FeedContents { contents: body.to_plain_text(), urls }
             div { class: "mt-4 flex flex-row justify-between items-center px-5",
                 UserBadge {
                     profile_url: author_profile_url,

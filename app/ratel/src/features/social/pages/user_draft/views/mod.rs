@@ -52,23 +52,6 @@ enum SortMode {
     Words,
 }
 
-fn strip_html(html: &str) -> String {
-    let mut out = String::new();
-    let mut in_tag = false;
-    for ch in html.chars() {
-        match ch {
-            '<' => in_tag = true,
-            '>' => in_tag = false,
-            _ if !in_tag => out.push(ch),
-            _ => {}
-        }
-    }
-    out
-}
-
-fn word_count(html: &str) -> usize {
-    strip_html(html).split_whitespace().count()
-}
 
 fn format_commas(n: i64) -> String {
     let s = n.to_string();
@@ -125,7 +108,7 @@ pub fn Home(username: String) -> Element {
     let week_count = items.iter().filter(|p| bucket_of(p.updated_at) == Bucket::Week).count();
     let older_count = items.iter().filter(|p| bucket_of(p.updated_at) == Bucket::Older).count();
     let space_count = items.iter().filter(|p| p.has_space()).count();
-    let total_words: usize = items.iter().map(|p| word_count(&p.html_contents)).sum();
+    let total_words: usize = items.iter().map(|p| p.body.to_plain_text().split_whitespace().count()).sum();
     let last_edited = items.iter().map(|p| p.updated_at).max();
 
     let last_edited_text = match last_edited {
@@ -150,7 +133,7 @@ pub fn Home(username: String) -> Element {
         SortMode::Recent => sorted.sort_by(|a, b| b.updated_at.cmp(&a.updated_at)),
         SortMode::Oldest => sorted.sort_by(|a, b| a.updated_at.cmp(&b.updated_at)),
         SortMode::Title => sorted.sort_by(|a, b| a.title.to_lowercase().cmp(&b.title.to_lowercase())),
-        SortMode::Words => sorted.sort_by(|a, b| word_count(&b.html_contents).cmp(&word_count(&a.html_contents))),
+        SortMode::Words => sorted.sort_by(|a, b| b.body.to_plain_text().split_whitespace().count().cmp(&a.body.to_plain_text().split_whitespace().count())),
     }
 
     let mut today_posts: Vec<PostResponse> = Vec::new();
@@ -510,7 +493,7 @@ fn DraftCard(
     let menu_open = menu_open_id().as_deref() == Some(pk_str.as_str());
     let is_writing = now() - post.updated_at < 5 * 60 * 1000;
 
-    let excerpt = strip_html(&post.html_contents);
+    let excerpt = post.body.to_plain_text();
     let excerpt_trim = excerpt.trim();
     let (excerpt_text, excerpt_empty) = if excerpt_trim.is_empty() {
         (tr.empty_excerpt.to_string(), true)
@@ -525,7 +508,7 @@ fn DraftCard(
         (title_text, false)
     };
 
-    let words = word_count(&post.html_contents);
+    let words = post.body.to_plain_text().split_whitespace().count();
     let image_count = post.urls.len();
     let has_space = post.has_space();
     let saved_ago = time_ago(post.updated_at);

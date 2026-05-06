@@ -254,7 +254,7 @@ fn DraftCard(draft: PostResponse, on_delete: EventHandler<FeedPartition>) -> Ele
     } else {
         draft.title.clone()
     };
-    let preview = strip_html(&draft.html_contents);
+    let preview = draft.body.to_plain_text();
     let updated = format_relative(draft.updated_at, &tr);
 
     let author_initial = draft
@@ -344,20 +344,6 @@ fn DraftCard(draft: PostResponse, on_delete: EventHandler<FeedPartition>) -> Ele
             }
         }
     }
-}
-
-fn strip_html(raw: &str) -> String {
-    let mut out = String::with_capacity(raw.len());
-    let mut in_tag = false;
-    for ch in raw.chars() {
-        match ch {
-            '<' => in_tag = true,
-            '>' => in_tag = false,
-            c if !in_tag => out.push(c),
-            _ => {}
-        }
-    }
-    out.split_whitespace().collect::<Vec<_>>().join(" ")
 }
 
 fn format_relative(updated_ms: i64, tr: &TeamDraftTranslate) -> String {

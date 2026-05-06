@@ -2,6 +2,7 @@ use dioxus::prelude::*;
 use std::collections::HashMap;
 
 use super::i18n::PostEditTranslate;
+use crate::common::types::ContentBody;
 use super::posting_as::PostingAs;
 use crate::common::components::editor::Editor as RichEditor;
 use crate::common::contexts::use_team_context;
@@ -67,7 +68,7 @@ pub fn PostEdit(post_id: ReadSignal<FeedPartition>) -> Element {
         post.status == PostStatus::Published && initial_visibility == Visibility::Public;
     let Post {
         title: init_title,
-        html_contents,
+        body,
         ..
     } = post;
 
@@ -114,7 +115,7 @@ pub fn PostEdit(post_id: ReadSignal<FeedPartition>) -> Element {
     let mut selected_team_pk = use_signal(move || initial_selected_team_pk.clone());
 
     let mut title = use_signal(move || init_title.clone());
-    let mut content = use_signal(move || html_contents.clone());
+    let mut content = use_signal(move || body.to_html());
     let mut status = use_signal(|| EditorStatus::Idle);
 
     let initial_categories_for_signal = initial_categories.clone();
@@ -159,7 +160,7 @@ pub fn PostEdit(post_id: ReadSignal<FeedPartition>) -> Element {
                 post_id(),
                 UpdatePostRequest::Writing {
                     title: current_title.clone(),
-                    content: current_content.clone(),
+                    content: ContentBody::html(current_content.clone()),
                     categories: Some(current_cats.clone()),
                 },
             )
@@ -167,10 +168,10 @@ pub fn PostEdit(post_id: ReadSignal<FeedPartition>) -> Element {
             {
                 Ok(Post {
                     title,
-                    html_contents,
+                    body,
                     ..
                 }) => {
-                    last_saved.set((title, html_contents, current_cats));
+                    last_saved.set((title, body.to_html(), current_cats));
                     status.set(EditorStatus::Saved);
                 }
                 Err(e) => {
@@ -263,7 +264,7 @@ pub fn PostEdit(post_id: ReadSignal<FeedPartition>) -> Element {
                     post_id(),
                     UpdatePostRequest::Publish {
                         title: title(),
-                        content: content(),
+                        content: ContentBody::html(content()),
                         image_urls: None,
                         publish: true,
                         visibility: Some(visibility()),
@@ -302,7 +303,7 @@ pub fn PostEdit(post_id: ReadSignal<FeedPartition>) -> Element {
                 post_id(),
                 UpdatePostRequest::Publish {
                     title: title(),
-                    content: content(),
+                    content: ContentBody::html(content()),
                     image_urls: None,
                     publish: true,
                     visibility: Some(vis),
@@ -337,7 +338,7 @@ pub fn PostEdit(post_id: ReadSignal<FeedPartition>) -> Element {
                 post_id(),
                 UpdatePostRequest::Writing {
                     title: current_title.clone(),
-                    content: current_content.clone(),
+                    content: ContentBody::html(current_content.clone()),
                     categories: Some(current_cats.clone()),
                 },
             )
@@ -345,10 +346,10 @@ pub fn PostEdit(post_id: ReadSignal<FeedPartition>) -> Element {
             {
                 Ok(Post {
                     title: saved_title,
-                    html_contents,
+                    body,
                     ..
                 }) => {
-                    last_saved.set((saved_title, html_contents, current_cats));
+                    last_saved.set((saved_title, body.to_html(), current_cats));
                     status.set(EditorStatus::Saved);
                 }
                 Err(e) => {

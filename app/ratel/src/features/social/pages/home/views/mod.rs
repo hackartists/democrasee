@@ -300,7 +300,7 @@ fn PostCard(index: usize, post: PostResponse) -> Element {
     let thumbnail = post.urls.first().cloned();
     let category = post.categories.first().cloned();
     let cat_modifier = category_modifier(category.as_deref());
-    let preview = strip_html(&post.html_contents);
+    let preview = post.body.to_plain_text();
 
     rsx! {
         article {
@@ -520,16 +520,3 @@ fn format_since(timestamp_ms: i64) -> String {
     }
 }
 
-fn strip_html(raw: &str) -> String {
-    let mut out = String::with_capacity(raw.len());
-    let mut in_tag = false;
-    for ch in raw.chars() {
-        match ch {
-            '<' => in_tag = true,
-            '>' => in_tag = false,
-            c if !in_tag => out.push(c),
-            _ => {}
-        }
-    }
-    out.split_whitespace().collect::<Vec<_>>().join(" ")
-}

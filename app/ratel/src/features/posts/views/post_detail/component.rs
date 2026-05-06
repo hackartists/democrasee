@@ -37,7 +37,7 @@ pub fn PostDetail(post_id: ReadSignal<FeedPartition>) -> Element {
         .unwrap_or_default();
     let post_html = post
         .as_ref()
-        .map(|p| p.html_contents.clone())
+        .map(|p| p.body.to_html())
         .unwrap_or_default();
     let post_image = post
         .as_ref()
