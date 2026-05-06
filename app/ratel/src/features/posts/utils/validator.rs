@@ -9,10 +9,8 @@ pub fn validate_title(title: &str) -> Result<()> {
     Ok(())
 }
 
-pub fn validate_content(content: &str) -> Result<()> {
-    let plain_text = extract_plain_text(content);
-    let len = plain_text.chars().count();
-    if len < 10 {
+pub fn validate_content(body: &ContentBody) -> Result<()> {
+    if body.char_count() < 10 {
         return Err(Error::ValidationTooShortContents);
     }
 
