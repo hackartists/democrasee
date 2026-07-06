@@ -89,3 +89,20 @@ pub fn is_ios() -> bool {
 pub fn is_ios() -> bool {
     false
 }
+
+/// True when running on an Android device — the native Android WebView or a
+/// mobile browser (UA contains "Android"). Client-side user-agent check;
+/// always `false` on the server. Used together with `is_ios()` to keep
+/// wallet sign-in web-only (hidden on both native mobile apps).
+#[cfg(not(feature = "server"))]
+pub fn is_android() -> bool {
+    web_sys::window()
+        .and_then(|w| w.navigator().user_agent().ok())
+        .map(|ua| ua.contains("Android"))
+        .unwrap_or(false)
+}
+
+#[cfg(feature = "server")]
+pub fn is_android() -> bool {
+    false
+}

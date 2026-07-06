@@ -130,6 +130,12 @@ const PRIVACY_SECTIONS_EN: &[Section] = &[
             "We may update this Privacy Policy from time to time. We will notify you of material changes by posting the updated policy on this page and updating the \"Last Updated\" date.",
         items: &[],
     },
+    Section {
+        title: "13. Public Leaderboards, Scores, and Activity Data",
+        content:
+            "When you participate in the platform — including spaces, polls, quizzes, discussions, and other activities — your participation, scores, rankings, and related activity data may be uploaded to our servers and published on public leaderboards, rankings, and profiles that are visible to other users. By signing up and participating, you consent to this collection and public display of your activity data. You may withdraw this consent by requesting deletion of your account and associated data at any time.",
+        items: &[],
+    },
 ];
 
 const PRIVACY_SECTIONS_KO: &[Section] = &[
@@ -232,6 +238,12 @@ const PRIVACY_SECTIONS_KO: &[Section] = &[
             "당사는 수시로 본 개인정보처리방침을 업데이트할 수 있습니다. 이 페이지에 업데이트된 방침을 게시하고 \"최종 업데이트\" 날짜를 업데이트하여 중요한 변경 사항을 알려드립니다.",
         items: &[],
     },
+    Section {
+        title: "13. 공개 리더보드, 점수 및 활동 데이터",
+        content:
+            "스페이스, 투표, 퀴즈, 토론 등 플랫폼 활동에 참여하면 귀하의 참여 내역, 점수, 순위 및 관련 활동 데이터가 당사 서버에 업로드되어 다른 사용자에게 표시되는 공개 리더보드, 순위, 프로필에 게시될 수 있습니다. 회원 가입 및 참여함으로써 귀하는 이러한 활동 데이터의 수집 및 공개 표시에 동의합니다. 언제든지 계정 및 관련 데이터의 삭제를 요청하여 이 동의를 철회할 수 있습니다.",
+        items: &[],
+    },
 ];
 
 fn privacy_page_data(is_korean: bool) -> PrivacyPageData {
@@ -242,7 +254,7 @@ fn privacy_page_data(is_korean: bool) -> PrivacyPageData {
             effective_date: "2024년 1월 1일",
             sections: PRIVACY_SECTIONS_KO,
             contact: ContactSection {
-                title: "13. 문의하기",
+                title: "14. 문의하기",
                 content:
                     "본 개인정보처리방침 또는 당사의 데이터 관행에 대해 질문이나 우려 사항이 있으시면 다음으로 연락해 주십시오:",
                 email_label: "이메일",
@@ -258,7 +270,7 @@ fn privacy_page_data(is_korean: bool) -> PrivacyPageData {
             effective_date: "January 1, 2024",
             sections: PRIVACY_SECTIONS_EN,
             contact: ContactSection {
-                title: "13. Contact Us",
+                title: "14. Contact Us",
                 content:
                     "If you have questions or concerns about this Privacy Policy or our data practices, please contact us at:",
                 email_label: "Email",

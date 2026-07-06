@@ -111,6 +111,8 @@ pub fn LoginModal(#[props(optional)] on_success: Option<Callback<()>>) -> Elemen
     // require Sign in with Apple. New users are handled by the unified email-code
     // flow (a code for an unknown account routes into the signup modal).
     let is_ios = use_signal(|| crate::common::hooks::is_ios());
+    // Wallet sign-in is web-only — hidden on both native mobile apps (iOS/Android).
+    let is_android = use_signal(|| crate::common::hooks::is_android());
 
     let handle_open_wallet_app = move |_| async move {
         #[cfg(feature = "web")]
@@ -439,9 +441,8 @@ pub fn LoginModal(#[props(optional)] on_success: Option<Callback<()>>) -> Elemen
                 }
             }
             // The "Or" divider only makes sense when a social login follows
-            // it. On iOS, Google (is_ios) and Wallet (max-mobile:hidden) are
-            // both hidden, leaving the divider stranded — so gate it on the
-            // same `!is_ios()` that shows Google.
+            // it. On iOS, both Google and Wallet are hidden (`!is_ios()`),
+            // leaving the divider stranded — so gate it on the same `!is_ios()`.
             if !is_ios() {
                 div { class: "font-light text-center rule-with-text align-center", {tr.or} }
             }
@@ -489,12 +490,16 @@ pub fn LoginModal(#[props(optional)] on_success: Option<Callback<()>>) -> Elemen
                         div { class: "text-base font-semibold text-white", {tr.continue_with_google} }
                     }
                 }
-                button {
-                    class: "flex flex-row gap-5 items-center px-5 w-full cursor-pointer rounded-[10px] bg-[#3B99FC] py-5.5 max-mobile:hidden",
-                    disabled: loading(),
-                    onclick: handle_wallet_login,
-                    icons::wallet::WalletConnect { class: "fill-white", width: "24", height: "24" }
-                    div { class: "text-base font-semibold text-white", {tr.continue_with_wallet} }
+                // Wallet login is web-only: hidden on the native iOS app (App
+                // Store guideline) and the native Android app, plus narrow screens.
+                if !is_ios() && !is_android() {
+                    button {
+                        class: "flex flex-row gap-5 items-center px-5 w-full cursor-pointer rounded-[10px] bg-[#3B99FC] py-5.5 max-mobile:hidden",
+                        disabled: loading(),
+                        onclick: handle_wallet_login,
+                        icons::wallet::WalletConnect { class: "fill-white", width: "24", height: "24" }
+                        div { class: "text-base font-semibold text-white", {tr.continue_with_wallet} }
+                    }
                 }
             }
             div { class: "flex flex-row gap-2.5 justify-center items-center w-full",

@@ -267,6 +267,15 @@ jobs:
   android-release:
     runs-on: ubuntu-latest
     timeout-minutes: 90
+    # crates.io downloads intermittently fail in CI with curl "[55] Failed
+    # sending data to the peer (Broken pipe)" during `cargo metadata`/build —
+    # an HTTP/2 multiplexing flake, not a code/dependency problem. Retry
+    # aggressively, fetch git deps via the git CLI, and disable HTTP/2
+    # multiplexing (the common fix for the broken-pipe signature).
+    env:
+      CARGO_NET_RETRY: "10"
+      CARGO_NET_GIT_FETCH_WITH_CLI: "true"
+      CARGO_HTTP_MULTIPLEXING: "false"
     steps:
       - uses: actions/checkout@v6
         with:
