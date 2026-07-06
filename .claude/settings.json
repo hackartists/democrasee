@@ -7,11 +7,15 @@
       "Read",
       "Glob",
       "Grep",
-      "Bash(grep -n \"pub fn FileUploader\\\\|on_upload_success\" src/common/components/file_uploader/*.rs)"
+      "Bash(grep -n \"pub fn FileUploader\\\\|on_upload_success\" src/common/components/file_uploader/*.rs)",
+      "Bash(xcode-select -p)",
+      "Bash(xcrun simctl *)",
+      "Bash(curl -s -o /dev/null -w \"dev.ratel.foundation: %{http_code}\\\\n\" https://dev.ratel.foundation/)",
+      "Bash(pkill -f \"dx serve\")",
+      "Bash(lsof -ti:8100)",
+      "Bash(xargs kill -9)",
+      "Bash(echo \"stopped. 8100: $\\(lsof -ti:8100 2>&1 && echo busy || echo free\\)\")"
     ]
-  },
-  "enabledPlugins": {
-    "dioxus-knowledge-patch@nevaberry-plugins": true
   },
   "hooks": {
     "PreToolUse": [
@@ -25,5 +29,8 @@
         ]
       }
     ]
+  },
+  "enabledPlugins": {
+    "dioxus-knowledge-patch@nevaberry-plugins": true
   }
 }
