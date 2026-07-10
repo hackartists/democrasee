@@ -4,7 +4,6 @@ import { GlobalAccelStack } from "../lib/global-accel-stack";
 import { GlobalTableStack } from "../lib/dynamodb-stack";
 import { DynamoStreamEventStack } from "../lib/dynamo-stream-event";
 import { AlbStack } from "../lib/alb-stack";
-import { QdrantStack } from "../lib/qdrant-stack";
 import { RegionalLambdaStack } from "../lib/regional-lambda-stack";
 import { EcsClusterStack } from "../lib/ecs-cluster-stack";
 import { VpcEndpointStack } from "../lib/vpc-endpoint-stack";
@@ -117,17 +116,11 @@ const ap_northeast_2_svc = new RegionalLambdaStack(
 //   prodDomain: "ratel.foundation",
 // });
 
-const qdrantStack = new QdrantStack(app, `ratel-${env}-qdrant-ap-northeast-2`, {
-  env: {
-    account: awsAccount,
-    region: "ap-northeast-2",
-  },
-  stage: env,
-  vpc: escStack.vpc,
-  cluster: escStack.cluster,
-  namespace: escStack.namespace,
-  sharedSecurityGroup: vpcEndpointStack.sharedSecurityGroup,
-});
+// Qdrant is no longer deployed per-environment by Ratel. The app connects to
+// the shared Qdrant in biyard-infra-cluster via the QDRANT_URL / QDRANT_API_KEY
+// secrets (collections stay namespaced per env by QDRANT_PREFIX = ratel-${env}).
+// Removing this stack tears down the per-env Qdrant ECS service + EFS volume —
+// migrate/reindex existing vectors to the shared cluster BEFORE deploying this.
 
 const ap_northeast_2_lambda = new RegionalLambdaStack(
   app,

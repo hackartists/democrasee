@@ -222,7 +222,7 @@ jobs:
           PORTONE_API_SECRET: ${{ secrets.DEV_PORTONE_API_SECRET }}
           PORTONE_KPN_CHANNEL_KEY: ${{ secrets.DEV_PORTONE_KPN_CHANNEL_KEY }}
 
-          QDRANT_URL: ${{ secrets.DEV_QDRANT_URL }}
+          QDRANT_URL: ${{ secrets.RATEL_QDRANT_URL }}
           QDRANT_API_KEY: ${{secrets.DEV_QDRANT_API_KEY }}
 
           WALLETCONNECT_PROJECT_ID: ${{ secrets.WALLETCONNECT_PROJECT_ID }}
