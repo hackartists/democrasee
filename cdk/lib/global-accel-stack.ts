@@ -65,14 +65,9 @@ export class GlobalAccelStack extends Stack {
       compress: true,
     };
 
-    // Qdrant origin via ap-northeast-2 regional API Gateway
-    const qdrantOrigin = new origins.HttpOrigin(
-      `ap-northeast-2.${apiDomain.replace(`.${baseDomain}`, "")}.${baseDomain}`,
-      {
-        protocolPolicy: cloudfront.OriginProtocolPolicy.HTTPS_ONLY,
-        originSslProtocols: [cloudfront.OriginSslPolicy.TLS_V1_2],
-      },
-    );
+    // NOTE: The `/qdrant/*` CloudFront behavior was removed — Ratel no longer
+    // hosts its own Qdrant. Qdrant now lives in biyard-infra-cluster and is
+    // accessed there (not proxied through Ratel's CloudFront/API Gateway).
 
     const distribution = new cloudfront.Distribution(this, "Distribution", {
       defaultBehavior: {
@@ -86,15 +81,6 @@ export class GlobalAccelStack extends Stack {
         viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
       },
       additionalBehaviors: {
-        "/qdrant/*": {
-          origin: qdrantOrigin,
-          cachePolicy: cloudfront.CachePolicy.CACHING_DISABLED,
-          originRequestPolicy:
-            cloudfront.OriginRequestPolicy.ALL_VIEWER_EXCEPT_HOST_HEADER,
-          allowedMethods: cloudfront.AllowedMethods.ALLOW_ALL,
-          viewerProtocolPolicy:
-            cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
-        },
         "/metadata/*": cachedS3Prop,
         "/assets/*": cachedS3Prop,
         "/icons/*": cachedS3Prop,
