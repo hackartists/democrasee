@@ -144,35 +144,19 @@ const ap_northeast_2_lambda = new RegionalLambdaStack(
   },
 );
 
-new RegionalLambdaStack(app, `ratel-${env}-svc-eu-central-1`, {
-  env: {
-    account: awsAccount,
-    region: "eu-central-1",
-  },
-  stage: env,
-  commit: process.env.COMMIT!,
-  baseDomain,
-  apiDomain,
-  webOrigin: `https://${webDomain}`,
-  runtimeEnvironment: {
-    ...launchpadEnv,
-  },
-});
-
-new RegionalLambdaStack(app, `ratel-${env}-svc-us-east-1`, {
-  env: {
-    account: awsAccount,
-    region: "us-east-1",
-  },
-  stage: env,
-  commit: process.env.COMMIT!,
-  baseDomain,
-  apiDomain,
-  webOrigin: `https://${webDomain}`,
-  runtimeEnvironment: {
-    ...launchpadEnv,
-  },
-});
+// ── Single-region deployment: ap-northeast-2 only ───────────────────────────
+// The `ratel-${env}-svc-eu-central-1` and `ratel-${env}-svc-us-east-1` regional
+// Lambda stacks were REMOVED. Each regional stack ran with `REGION: this.region`
+// (regional-lambda-stack.ts) so its DynamoDB client targeted that region's
+// replica — and the cross-region global-table replicas have been deleted. Those
+// regions therefore returned HTTP 500 (`failed to list posts`) for every
+// DB-backed request while Route53 latency routing still sent EU/US traffic to
+// them. The latency records for both regions have been removed from
+// `api.ratel.foundation`, so all traffic now resolves to ap-northeast-2.
+//
+// NOTE: `GlobalAccel` below intentionally stays in us-east-1 — CloudFront
+// requires its ACM certificate in us-east-1. It is a global CDN stack, not a
+// regional workload, so it does not conflict with single-region deployment.
 
 new GlobalAccelStack(app, "GlobalAccel", {
   stackName,
