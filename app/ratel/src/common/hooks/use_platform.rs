@@ -80,8 +80,28 @@ pub fn use_platform() -> Signal<Platform> {
 #[cfg(not(feature = "server"))]
 pub fn is_ios() -> bool {
     web_sys::window()
-        .and_then(|w| w.navigator().user_agent().ok())
-        .map(|ua| ua.contains("iPhone") || ua.contains("iPad") || ua.contains("iPod"))
+        .map(|w| {
+            let nav = w.navigator();
+            let ua = nav.user_agent().unwrap_or_default();
+            let iphone = ua.contains("iPhone") || ua.contains("iPad") || ua.contains("iPod");
+
+            // iPadOS 13+ (and the iPad WKWebView the App Store review runs)
+            // masquerades as DESKTOP: the UA carries "Macintosh" with no "iPad"
+            // token AND navigator.platform reports "MacIntel". A plain UA check
+            // therefore misses every iPad — exactly why the reviewer (iPad Air)
+            // still saw the Google/Wallet buttons. A real Mac has NO touchscreen
+            // (max_touch_points == 0), so any Apple-desktop signal reporting
+            // touch points can only be an iPad. Combine UA + platform so we
+            // catch it regardless of which one the WebView chose to spoof.
+            let touch = nav.max_touch_points() > 1;
+            let platform = nav.platform().unwrap_or_default();
+            let apple_desktop = ua.contains("Macintosh")
+                || platform.contains("Mac")
+                || platform.contains("iP");
+            let ipad_masquerade = touch && apple_desktop;
+
+            iphone || ipad_masquerade
+        })
         .unwrap_or(false)
 }
 
