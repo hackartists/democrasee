@@ -108,6 +108,11 @@ translate! {
         ko: "내 게시물",
     },
 
+    tab_invited: {
+        en: "Invited",
+        ko: "받은 초대",
+    },
+
     empty_hot: {
         en: "No hot spaces yet. Check back soon.",
         ko: "아직 인기 스페이스가 없습니다.",
@@ -121,6 +126,11 @@ translate! {
     empty_posts: {
         en: "You haven't written any posts yet.",
         ko: "아직 작성한 게시물이 없습니다.",
+    },
+
+    empty_invited: {
+        en: "No pending invitations.",
+        ko: "받은 초대가 없습니다.",
     },
 
     post_badge: {

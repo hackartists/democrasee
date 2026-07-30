@@ -69,56 +69,105 @@ pub async fn list_my_home_spaces_handler(
 
     let mut items: Vec<HotSpaceResponse> = Vec::with_capacity(spaces.len());
     for (idx, space) in spaces.into_iter().enumerate() {
-        let post_pk = space.pk.clone().to_post_key().ok();
-
-        // Fetch the backing post per space (same path `list_hot_spaces`'s
-        // fan-out uses, which works) — the previous `batch_get` + pk-keyed
-        // HashMap lookup came back empty, leaving every card title/description
-        // blank. We already do a per-space `count_actions` below, so an extra
-        // point-get here keeps the cost in the same N ballpark.
-        let post = match &post_pk {
-            Some(pk) => Post::get(cli, pk.clone(), Some(EntityType::Post))
-                .await
-                .ok()
-                .flatten(),
-            None => None,
-        };
-
-        let title = post.as_ref().map(|p| p.title.clone()).unwrap_or_default();
-        let description = if !space.content.is_empty() {
-            extract_description(&space.content)
-        } else {
-            post.as_ref()
-                .map(|p| extract_description(&p.body.to_html()))
-                .unwrap_or_default()
-        };
-
-        let (poll_count, discussion_count, quiz_count, follow_count) =
-            count_actions(cli, &space.pk).await;
-        let total_actions = poll_count + discussion_count + quiz_count + follow_count;
-        let heat = derive_heat(space.participants);
-
-        items.push(HotSpaceResponse {
-            space_id: space.pk.clone().into(),
-            post_id: post_pk.unwrap_or_default().into(),
-            title,
-            description,
-            logo: space.logo,
-            author_display_name: space.author_display_name,
-            participants: space.participants,
-            rewards: space.rewards.unwrap_or(0),
-            poll_count,
-            discussion_count,
-            quiz_count,
-            follow_count,
-            total_actions,
-            heat,
-            rank: idx as i64 + 1,
-            created_at: space.created_at,
-        });
+        items.push(build_hot_space_card(cli, space, idx as i64 + 1).await);
     }
 
     Ok((items, next_bookmark).into())
+}
+
+/// Spaces the user has been **invited** to but not yet joined — the persistent,
+/// discoverable surface for invitations (the notification bell is transient).
+/// Powers the home "INVITED" tab. Only `Invited` status is returned: it means
+/// the space is published and the user can enter (`Pending` = space not live
+/// yet, so joining is blocked — see `participate_space`).
+#[get("/api/home/invited-spaces?bookmark", user: User)]
+pub async fn list_my_invited_spaces_handler(
+    bookmark: Option<String>,
+) -> Result<ListResponse<HotSpaceResponse>> {
+    use crate::features::spaces::space_common::models::{InvitationStatus, SpaceInvitationMember};
+
+    let conf = crate::common::config::ServerConfig::default();
+    let cli = conf.dynamodb();
+
+    let opt = SpaceInvitationMember::opt_with_bookmark(bookmark)
+        .sk(InvitationStatus::Invited.to_string())
+        .limit(10);
+    let (invitations, next_bookmark) =
+        SpaceInvitationMember::find_user_invitations_by_status_latest(cli, &user.pk, opt).await?;
+
+    // Each invitation row's pk IS the space partition key.
+    let space_keys: Vec<(Partition, EntityType)> = invitations
+        .iter()
+        .map(|inv| (inv.pk.clone(), EntityType::SpaceCommon))
+        .collect();
+
+    let spaces: Vec<SpaceCommon> = if space_keys.is_empty() {
+        vec![]
+    } else {
+        SpaceCommon::batch_get(cli, space_keys).await?
+    };
+
+    let mut items: Vec<HotSpaceResponse> = Vec::with_capacity(spaces.len());
+    for (idx, space) in spaces.into_iter().enumerate() {
+        items.push(build_hot_space_card(cli, space, idx as i64 + 1).await);
+    }
+
+    Ok((items, next_bookmark).into())
+}
+
+/// Build one home carousel card (`HotSpaceResponse`) from a `SpaceCommon`.
+/// Shared by the "my spaces" and "invited" home lists. `rank` is the 1-based
+/// position within its list.
+#[cfg(feature = "server")]
+async fn build_hot_space_card(
+    cli: &aws_sdk_dynamodb::Client,
+    space: SpaceCommon,
+    rank: i64,
+) -> HotSpaceResponse {
+    let post_pk = space.pk.clone().to_post_key().ok();
+
+    // Fetch the backing post per space (same path `list_hot_spaces`'s fan-out
+    // uses) — the title/description live on the Feed post, not SpaceCommon.
+    let post = match &post_pk {
+        Some(pk) => Post::get(cli, pk.clone(), Some(EntityType::Post))
+            .await
+            .ok()
+            .flatten(),
+        None => None,
+    };
+
+    let title = post.as_ref().map(|p| p.title.clone()).unwrap_or_default();
+    let description = if !space.content.is_empty() {
+        extract_description(&space.content)
+    } else {
+        post.as_ref()
+            .map(|p| extract_description(&p.body.to_html()))
+            .unwrap_or_default()
+    };
+
+    let (poll_count, discussion_count, quiz_count, follow_count) =
+        count_actions(cli, &space.pk).await;
+    let total_actions = poll_count + discussion_count + quiz_count + follow_count;
+    let heat = derive_heat(space.participants);
+
+    HotSpaceResponse {
+        space_id: space.pk.clone().into(),
+        post_id: post_pk.unwrap_or_default().into(),
+        title,
+        description,
+        logo: space.logo,
+        author_display_name: space.author_display_name,
+        participants: space.participants,
+        rewards: space.rewards.unwrap_or(0),
+        poll_count,
+        discussion_count,
+        quiz_count,
+        follow_count,
+        total_actions,
+        heat,
+        rank,
+        created_at: space.created_at,
+    }
 }
 
 #[cfg(feature = "server")]

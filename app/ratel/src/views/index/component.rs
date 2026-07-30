@@ -11,7 +11,8 @@ use crate::features::posts::controllers::list_user_posts::list_user_posts_handle
 use crate::features::social::pages::team_arena::ArenaTeamCreationPopup;
 use crate::features::spaces::pages::index::SettingsPanel;
 use crate::features::spaces::space_common::controllers::{
-    list_hot_spaces_handler, list_my_home_spaces_handler, HotSpaceResponse,
+    list_hot_spaces_handler, list_my_home_spaces_handler, list_my_invited_spaces_handler,
+    HotSpaceResponse,
 };
 use crate::features::spaces::space_common::models::HotSpaceHeat;
 use crate::me::use_my_spaces;
@@ -21,6 +22,7 @@ use crate::*;
 enum HomeTab {
     Hot,
     Mine,
+    Invited,
     Posts,
 }
 
@@ -115,17 +117,33 @@ pub fn Index() -> Element {
 
     let my_spaces = use_my_spaces()?.my_spaces;
 
+    // Spaces the user was invited to (persistent surface for invitations —
+    // the notification bell is transient). Only fetched when logged in.
+    let invited_spaces = use_loader(move || {
+        let has_user = user_ctx().user.is_some();
+        async move {
+            if has_user {
+                list_my_invited_spaces_handler(None).await
+            } else {
+                Ok(Default::default())
+            }
+        }
+    })?;
+
     // Pull-to-refresh (mobile/Tauri only — no-op on web). Re-runs the home
     // loaders when the user pulls the list down past the threshold.
     let mut hot = hot_spaces;
     let mut mine = my_spaces;
+    let mut invited = invited_spaces;
     use_pull_to_refresh(".home-arena__scroll", move || {
         hot.restart();
         mine.restart();
+        invited.restart();
     });
 
     let hot_cards = hot_spaces().items;
     let mine_cards = my_spaces().items;
+    let invited_cards = invited_spaces().items;
 
     let default_tab = if has_user && !mine_cards.is_empty() {
         HomeTab::Mine
@@ -138,6 +156,7 @@ pub fn Index() -> Element {
     let cards = match current_tab {
         HomeTab::Hot => hot_cards.clone(),
         HomeTab::Mine => mine_cards.clone(),
+        HomeTab::Invited => invited_cards.clone(),
         // Posts tab renders its own list below, not the space carousel.
         HomeTab::Posts => Vec::new(),
     };
@@ -507,6 +526,13 @@ pub fn Index() -> Element {
                         }
                         button {
                             class: "section-tab",
+                            aria_selected: current_tab == HomeTab::Invited,
+                            "data-testid": "home-tab-invited",
+                            onclick: move |_| active_tab.set(HomeTab::Invited),
+                            "{t.tab_invited}"
+                        }
+                        button {
+                            class: "section-tab",
                             aria_selected: current_tab == HomeTab::Posts,
                             "data-testid": "home-tab-posts",
                             onclick: move |_| active_tab.set(HomeTab::Posts),
@@ -548,6 +574,8 @@ pub fn Index() -> Element {
                     div { class: "home-arena__empty",
                         if current_tab == HomeTab::Mine {
                             "{t.empty_mine}"
+                        } else if current_tab == HomeTab::Invited {
+                            "{t.empty_invited}"
                         } else {
                             "{t.empty_hot}"
                         }
