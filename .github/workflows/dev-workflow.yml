@@ -236,12 +236,20 @@ jobs:
             echo "::warning::no known package manager; relying on preinstalled toolchain"
           fi
 
-      - uses: cargo-bins/cargo-binstall@main
-      - name: Install Dioxus-cli
+      - name: Install Dioxus-cli (source build — binstall binaries need newer glibc)
         run: |
-          # `--locked` pins dioxus-cli's published Cargo.lock on the source-
-          # build fallback (git2 0.21 breaks auth-git2 0.5.8 otherwise).
-          cargo binstall -y dioxus-cli --force --locked
+          # binstall's prebuilt dx targets a newer glibc than the runner image
+          # ships (`GLIBC_2.39 not found`, run 30897339573 — same failure the
+          # PR build-image job hit; binstall even overwrote a working
+          # source-built dx on the runner disk). Build from source with
+          # `--locked` (pins dioxus-cli's published Cargo.lock; git2 0.21
+          # breaks auth-git2 0.5.8 otherwise). ~/.cargo/bin persists on the
+          # self-hosted runner, so this is a one-time cost per runner.
+          if dx --version >/dev/null 2>&1; then
+            echo "working dx already present: $(dx --version)"
+          else
+            cargo install dioxus-cli --locked --force
+          fi
 
       - name: Build app-shell (make build — dev release, no bypass/local-dev/lambda)
         run: |
@@ -833,10 +841,10 @@ jobs:
     needs: [deploy]
     steps:
       # v3 → v6: actionlint flags the node16-era checkout runner as too old.
+      # Default-token checkout — the repo has no submodules (.gitmodules is
+      # empty) and the old PULL_KEY_REPO deploy key no longer authenticates
+      # (Permission denied, run 30897339573; same fix as pr-workflow).
       - uses: actions/checkout@v6
-        with:
-          submodules: recursive
-          ssh-key: ${{ secrets.PULL_KEY_REPO }}
       - name: Git pr release action
         uses: grassedge/git-pr-release-action@v1.0
         with:
@@ -860,6 +868,27 @@ jobs:
 
     steps:
       - uses: actions/checkout@v6
+
+      - name: Free disk space
+        # Same mitigation as pr-workflow's ratel-app: cold builds fill the
+        # runner disk alongside the restored cache.
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc \
+            /usr/local/.ghcup /opt/hostedtoolcache/CodeQL /usr/local/share/boost
+          sudo docker image prune --all --force 2>/dev/null || true
+          df -h / /mnt
+
+      - name: Add swap memory
+        # exit 143 (OOM kill) ~15 min into a cold build on run 30897339573 —
+        # same fix as pr-workflow's ratel-app.
+        run: |
+          sudo swapoff -a
+          sudo rm -f /swapfile /mnt/swapfile
+          sudo fallocate -l 12G /mnt/swapfile
+          sudo chmod 600 /mnt/swapfile
+          sudo mkswap /mnt/swapfile
+          sudo swapon /mnt/swapfile
+          free -h
 
       - name: Restore cache
         id: app-shell-build-cache
@@ -917,6 +946,9 @@ jobs:
           AWS_ACCOUNT_ID: test
           COMMIT: pr-${{ github.sha }}
           ECR: ratel/app-shell
+          # Bound rustc parallelism — 4 concurrent rustc peaks past the 7 GB
+          # runner even with swap (see "Add swap memory" above).
+          CARGO_BUILD_JOBS: "2"
         run: |
           npm i
           rm -rf target/dx
@@ -964,10 +996,10 @@ jobs:
     timeout-minutes: 60
 
     steps:
+      # Default-token checkout — the repo has no submodules (.gitmodules is
+      # empty) and the old PULL_KEY_REPO deploy key no longer authenticates
+      # (Permission denied, run 30897339573; same fix as pr-workflow).
       - uses: actions/checkout@v6
-        with:
-          submodules: recursive
-          ssh-key: ${{ secrets.PULL_KEY_REPO }}
 
       - name: Restore cache
         id: tauri-android-dev-cache
