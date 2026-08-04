@@ -49,6 +49,11 @@ spec:
         app: ratel-cdc
         tier: events
     spec:
+      # qdrant (jemalloc) aborts on the Pi node's 16K page-size kernel,
+      # and the Pi is the small node anyway — pin every preview/dev pod to
+      # the 4K-page main node (same class asset pins its e2e pod to).
+      nodeSelector:
+        biyard.io/node-class: main
       containers:
         - name: cdc
           image: registry.infra.svc.cluster.local:5000/ratel-events:${SHA_TAG}
@@ -87,6 +92,11 @@ spec:
         app: ratel-worker-default
         tier: events
     spec:
+      # qdrant (jemalloc) aborts on the Pi node's 16K page-size kernel,
+      # and the Pi is the small node anyway — pin every preview/dev pod to
+      # the 4K-page main node (same class asset pins its e2e pod to).
+      nodeSelector:
+        biyard.io/node-class: main
       containers:
         - name: worker
           image: registry.infra.svc.cluster.local:5000/ratel-events:${SHA_TAG}
@@ -137,6 +147,11 @@ spec:
         app: ratel-worker-analyze
         tier: events
     spec:
+      # qdrant (jemalloc) aborts on the Pi node's 16K page-size kernel,
+      # and the Pi is the small node anyway — pin every preview/dev pod to
+      # the 4K-page main node (same class asset pins its e2e pod to).
+      nodeSelector:
+        biyard.io/node-class: main
       containers:
         - name: worker
           image: registry.infra.svc.cluster.local:5000/ratel-events:${SHA_TAG}
@@ -186,6 +201,11 @@ spec:
         app: ratel-worker-egress
         tier: events
     spec:
+      # qdrant (jemalloc) aborts on the Pi node's 16K page-size kernel,
+      # and the Pi is the small node anyway — pin every preview/dev pod to
+      # the 4K-page main node (same class asset pins its e2e pod to).
+      nodeSelector:
+        biyard.io/node-class: main
       containers:
         - name: worker
           image: registry.infra.svc.cluster.local:5000/ratel-events:${SHA_TAG}

@@ -33,6 +33,11 @@ spec:
       labels:
         app: app-shell
     spec:
+      # qdrant (jemalloc) aborts on the Pi node's 16K page-size kernel,
+      # and the Pi is the small node anyway — pin every preview/dev pod to
+      # the 4K-page main node (same class asset pins its e2e pod to).
+      nodeSelector:
+        biyard.io/node-class: main
       initContainers:
         - name: wait-for-dynamo
           # amazon/aws-cli is multi-arch (arm64 ok). Loops until LocalStack

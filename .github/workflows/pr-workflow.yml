@@ -216,6 +216,29 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
+      - name: Free disk space
+        # Cold cache (Cargo.lock changed) makes this dx build fill the runner
+        # disk alongside the restored cache; drop unused preinstalled
+        # toolchains first (same mitigation as ratel-app-testing).
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc \
+            /usr/local/.ghcup /opt/hostedtoolcache/CodeQL /usr/local/share/boost
+          sudo docker image prune --all --force 2>/dev/null || true
+          df -h / /mnt
+
+      - name: Add swap memory
+        # The job died with "runner lost communication" ~80 min into a cold
+        # `make build-testing` — the classic OOM kill on the 7 GB runner. Same
+        # 12G /mnt swap ratel-app-testing uses.
+        run: |
+          sudo swapoff -a
+          sudo rm -f /swapfile /mnt/swapfile
+          sudo fallocate -l 12G /mnt/swapfile
+          sudo chmod 600 /mnt/swapfile
+          sudo mkswap /mnt/swapfile
+          sudo swapon /mnt/swapfile
+          free -h
+
       - name: Restore cache
         id: app-shell-build-cache
         uses: actions/cache/restore@v5
@@ -272,6 +295,9 @@ jobs:
           AWS_ACCOUNT_ID: test
           COMMIT: pr-${{ github.sha }}
           ECR: ratel/app-shell
+          # Bound rustc parallelism on cold builds — 4 concurrent rustc peaks
+          # past the 7 GB runner even with swap (see "Add swap memory" above).
+          CARGO_BUILD_JOBS: "2"
         run: |
           npm i
           rm -rf target/dx
