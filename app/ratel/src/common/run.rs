@@ -172,8 +172,14 @@ fn serve(app: fn() -> Element) {
     {
         #[cfg(feature = "local-dev")]
         {
-            tracing::info!("Starting local-dev DynamoDB Stream poller");
-            crate::common::stream_poller::spawn_stream_poller();
+            if crate::common::events::stream_poller_enabled() {
+                tracing::info!("Starting local-dev DynamoDB Stream poller");
+                crate::common::stream_poller::spawn_stream_poller();
+            } else {
+                tracing::info!(
+                    "RATEL_STREAM_POLLER=off — in-process stream poller disabled (using ratel_cdc/ratel_worker pipeline)"
+                );
+            }
         }
 
         #[cfg(feature = "local-dev")]

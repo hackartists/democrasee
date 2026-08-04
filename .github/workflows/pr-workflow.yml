@@ -1,5 +1,49 @@
 name: PR Testing
 
+# Runs on every pull request against dev. Jobs:
+#   1. contracts-test    — smart contract tests (contracts/).
+#   2. docs-build        — Docusaurus site builds (docs/).
+#   3. dx-check          — Dioxus compile checks (web/ios/android/tauri-web).
+#   4. ratel-app         — x86 docker image artifact, RETAINED ONLY for the
+#                          tauri-android-smoke-test job (its emulator backend
+#                          must run on the ubuntu-latest host's docker). The
+#                          browser e2e path no longer consumes it.
+#   5. ratel-app-testing — server function integration tests (cargo test).
+#   6. build-image       — SELF-HOSTED (biyard org k8s runner pods, arm64):
+#                          native `make build-testing` (both cluster nodes are
+#                          arm64 — no cross-compile), then package + push the
+#                          app image with the IN-CLUSTER buildkitd
+#                          (scripts/buildkit-image.sh — the runners carry
+#                          buildctl, no docker CLI) to the in-cluster registry
+#                          as ratel-app-shell:pr-<num>.
+#   7. e2e               — PR-ISOLATED Playwright run on the HOME k3s cluster
+#                          (modeled on asset's e2e job): deploy the full
+#                          preview stack (localstack + init seed job + qdrant
+#                          + app-shell + Ingress) from deploy/pr-preview/*.yaml
+#                          into namespace ratel-pr-<num>, reachable at
+#                          ratel-<num>.pr.biyard.co (exact-host Ingress takes
+#                          the name over from the wildcard pr-nginx; default
+#                          TLS cert — Playwright ignores TLS errors). The
+#                          suite runs in a k8s pod (official Playwright image,
+#                          kubectl cp in/out), pinned to the ingress ClusterIP
+#                          via E2E_HOST_RESOLVER_RULES. The HTML report is
+#                          published to the pr-webroot at
+#                          ratel-report-<num>.pr.biyard.co and linked from a
+#                          sticky PR comment. UNLIKE asset, the preview
+#                          namespace is TORN DOWN when the tests finish (the
+#                          report webroot stays); pr-preview-cleanup.yml is
+#                          only the safety net for cancelled/crashed runs.
+#                          NON-BLOCKING (`continue-on-error: true`) while the
+#                          new infra path stabilizes — promote to a required
+#                          check once a run of green history backs it.
+#   8. tauri-android-*   — Android APK build + emulator smoke test (docker
+#                          compose backend from job 4).
+#
+# Caching on the self-hosted jobs is restore-only (actions/cache/restore,
+# never save) with ratel-cargo-* / ratel-target-* keys — same policy as
+# asset's pr-workflow: PR runs restore warmed caches but never write their
+# own entries, keeping the repo cache store from filling per-PR.
+
 on:
   pull_request:
     types: [opened, synchronize, reopened]
@@ -154,6 +198,15 @@ jobs:
         run: |
           cargo check
 
+  # ────────────────────────────────────────────────────────────────────────
+  # ratel-app: x86_64 docker image artifact. RETAINED ONLY as the backend
+  # provider for `tauri-android-smoke-test` — that job loads this artifact
+  # into the ubuntu-latest host's docker daemon and reaches it from the
+  # Android emulator via `adb reverse`, which the in-cluster arm64 image
+  # (build-image job) cannot serve. The browser e2e path (e2e job) no longer
+  # consumes this artifact. If the smoke test ever moves off docker compose,
+  # delete this job.
+  # ────────────────────────────────────────────────────────────────────────
   ratel-app:
     runs-on: ubuntu-latest
 
@@ -162,6 +215,29 @@ jobs:
 
     steps:
       - uses: actions/checkout@v6
+
+      - name: Free disk space
+        # Cold cache (Cargo.lock changed) makes this dx build fill the runner
+        # disk alongside the restored cache; drop unused preinstalled
+        # toolchains first (same mitigation as ratel-app-testing).
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc \
+            /usr/local/.ghcup /opt/hostedtoolcache/CodeQL /usr/local/share/boost
+          sudo docker image prune --all --force 2>/dev/null || true
+          df -h / /mnt
+
+      - name: Add swap memory
+        # The job died with "runner lost communication" ~80 min into a cold
+        # `make build-testing` — the classic OOM kill on the 7 GB runner. Same
+        # 12G /mnt swap ratel-app-testing uses.
+        run: |
+          sudo swapoff -a
+          sudo rm -f /swapfile /mnt/swapfile
+          sudo fallocate -l 12G /mnt/swapfile
+          sudo chmod 600 /mnt/swapfile
+          sudo mkswap /mnt/swapfile
+          sudo swapon /mnt/swapfile
+          free -h
 
       - name: Restore cache
         id: app-shell-build-cache
@@ -219,6 +295,9 @@ jobs:
           AWS_ACCOUNT_ID: test
           COMMIT: pr-${{ github.sha }}
           ECR: ratel/app-shell
+          # Bound rustc parallelism on cold builds — 4 concurrent rustc peaks
+          # past the 7 GB runner even with swap (see "Add swap memory" above).
+          CARGO_BUILD_JOBS: "2"
         run: |
           npm i
           rm -rf target/dx
@@ -249,6 +328,18 @@ jobs:
       # runner agent (manifests as exit 143 / "runner shutdown signal"
       # during the link phase). Replace the runner's default 4 GB swap
       # with 12 GB on /mnt (the larger data disk) to absorb the spike.
+      - name: Free disk space
+        # The job died with "No space left on device" on /home/runner while
+        # restoring the multi-GB cargo/target cache (observed on run
+        # 30881118844 and the run before it). ubuntu-latest ships ~25 GB of
+        # preinstalled toolchains this job never uses — drop them so the
+        # cache extraction + cold build fit.
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc \
+            /usr/local/.ghcup /opt/hostedtoolcache/CodeQL /usr/local/share/boost
+          sudo docker image prune --all --force 2>/dev/null || true
+          df -h / /mnt
+
       - name: Add swap memory
         run: |
           sudo swapoff -a
@@ -332,126 +423,387 @@ jobs:
           npm i
           make test
 
-  playwright-tests:
-    runs-on: ubuntu-latest
-    # Bumped from 30 to 45 to accommodate gotoFresh helper which purges
-    # Dioxus 0.7 arena via page.reload at popup-following navigations
-    # (adds ~1-2s per call). Local runtime is ~29min so 30 was too tight.
-    timeout-minutes: 45
-    needs: [ratel-app]
+  # ────────────────────────────────────────────────────────────────────────
+  # build-image: build the arm64 app-shell image ON the self-hosted runner
+  # and push it to the in-cluster registry as ratel-app-shell:pr-<num>.
+  #
+  # The runners are biyard org-level k8s pods on the home k3s cluster
+  # (kubectl + helm + buildctl preinstalled, BUILDKIT_HOST preset, NO docker
+  # CLI). Both cluster nodes are arm64, so a native `make build-testing`
+  # here already produces arm64 binaries — the buildkit step only packages
+  # the dx output (app/ratel/Dockerfile copies target/dx/app-shell/release/
+  # web) and pushes; no compile happens inside the Dockerfile.
+  #
+  # The compile-time env block is IDENTICAL to the ratel-app job above —
+  # DYNAMO_ENDPOINT=http://localstack:4566 etc. are baked into the binary,
+  # and stay valid in-cluster because deploy/pr-preview names its k8s
+  # Services after the docker-compose hostnames (localstack, qdrant).
+  #
+  # PR-only: the image tag needs github.event.number.
+  # ────────────────────────────────────────────────────────────────────────
+  build-image:
+    runs-on: self-hosted
+    timeout-minutes: 90
+    if: github.event_name == 'pull_request'
 
     steps:
       - uses: actions/checkout@v6
-        with:
-          submodules: recursive
-          ssh-key: ${{ secrets.PULL_KEY_REPO }}
 
-      - name: Download Docker image artifact
-        uses: actions/download-artifact@v8
-        with:
-          name: app-shell-image-${{ github.sha }}
-          path: /tmp
-
-      - name: Load Docker images
+      - name: Install Rust toolchain
+        # The self-hosted runner usually has a working stable toolchain. A
+        # bare `rustup toolchain install stable` tries to UPDATE it, which
+        # can fail with EXDEV on these runners (.rustup/toolchains and
+        # .rustup/tmp on different mounts). Install only when genuinely
+        # absent; always ensure the wasm target the dx client build needs.
         run: |
-          # Load images from cache
-          docker load < /tmp/app-shell-image.tar.gz
-
-          docker images
-
-      - name: Setup test environment
-        env:
-          COMMIT: pr-${{ github.sha }}
-          RESET_DB: "true"
-        run: |
-          docker compose --profile testing up -d localstack qdrant
-          echo "Waiting for LocalStack to be healthy..."
-          timeout 120 bash -c 'until curl -sf http://localhost:4566/_localstack/health > /dev/null 2>&1; do sleep 5; done'
-          echo "LocalStack is healthy, starting remaining services..."
-          docker compose --profile testing up -d
-
-      - name: Wait for services to be ready
-        run: |
-          # Check service health with retry loop and timeout
-          echo "Waiting for services to be ready..."
-
-          # Wait for Main API (180 second timeout for container startup)
-          echo "🔄 Checking Main API..."
-          timeout=180
-          interval=10
-          elapsed=0
-          while [ $elapsed -lt $timeout ]; do
-            if curl -f -s http://localhost:8080/ > /dev/null 2>&1; then
-              echo "✅ App Shell is responding (took ${elapsed}s)"
-              break
+          if ! command -v rustup >/dev/null 2>&1; then
+            if [ -x "$HOME/.cargo/bin/rustup" ]; then
+              export PATH="$HOME/.cargo/bin:$PATH"
+            else
+              curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal --default-toolchain stable
+              export PATH="$HOME/.cargo/bin:$PATH"
             fi
-            echo "⏳ App Shell not ready yet... (${elapsed}/${timeout}s)"
-            sleep $interval
-            elapsed=$((elapsed + interval))
-          done
+            echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+          fi
+          rustup toolchain list | grep -q '^stable' || rustup toolchain install stable --profile minimal
+          rustup target list --installed | grep -q '^wasm32-unknown-unknown$' || rustup target add wasm32-unknown-unknown
 
-          if [ $elapsed -ge $timeout ]; then
-            echo "❌ App Shell failed to respond with 200 status within ${timeout}s"
-            echo "🔍 Checking Docker services status:"
-            docker compose ps
-            echo "🔍 App Shell logs:"
-            docker compose logs app-shell-testing
-            exit 1
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          # no `cache:` input on purpose — restore-only cache policy (see
+          # file header): setup-node must not save a cache entry per run.
+
+      - name: Restore cargo registry/index (restore-only)
+        uses: actions/cache/restore@v5
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+          # Shared, job-agnostic key so future warm-cache jobs can share it.
+          # Restore-only — this workflow never saves (cache-store hygiene,
+          # same policy as asset's pr-workflow).
+          key: ratel-cargo-${{ runner.os }}-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ratel-cargo-${{ runner.os }}-
+
+      - name: Restore build target (restore-only)
+        uses: actions/cache/restore@v5
+        with:
+          path: target
+          key: ratel-target-${{ runner.os }}-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ratel-target-${{ runner.os }}-
+
+      - name: Install build deps (C toolchain, pkg-config, openssl headers)
+        # The web/server dx build needs a linker + pkg-config + openssl dev
+        # headers. Idempotent + multi-distro (asset pattern); a no-op once
+        # the persistent runner image has them. No webkit/gtk here — those
+        # are desktop-target deps the ubuntu-latest jobs install; the
+        # web+server platforms don't link them.
+        run: |
+          set -eu
+          if command -v cc >/dev/null 2>&1 && command -v pkg-config >/dev/null 2>&1 && [ -f /usr/include/openssl/ssl.h ]; then
+            echo "C toolchain + pkg-config + openssl headers already present"
+            exit 0
+          fi
+          SUDO=""
+          if command -v sudo >/dev/null 2>&1; then SUDO="sudo"; fi
+          if command -v apt-get >/dev/null 2>&1; then
+            $SUDO apt-get update -qq
+            $SUDO apt-get install -y --no-install-recommends build-essential pkg-config libssl-dev
+          elif command -v dnf >/dev/null 2>&1; then
+            $SUDO dnf install -y gcc make pkgconf-pkg-config openssl-devel
+          elif command -v apk >/dev/null 2>&1; then
+            $SUDO apk add --no-cache build-base pkgconfig openssl-dev
+          else
+            echo "::warning::no known package manager; relying on preinstalled toolchain"
           fi
 
-          echo "🎉 All services are ready!"
+      - name: Install Dioxus-cli (source build — binstall binaries need newer glibc)
+        run: |
+          # binstall's prebuilt dx targets a newer glibc than the runner image
+          # ships (observed: `GLIBC_2.39 not found`), so build from source with
+          # `--locked` (honors dioxus-cli's published Cargo.lock — fresh
+          # resolution picks git2 0.21 which breaks auth-git2 0.5.8).
+          # ~/.cargo/bin persists on the self-hosted runner disk, so the
+          # compile is a one-time cost; the version check makes reruns a no-op
+          # while still replacing a glibc-broken binary from an earlier run.
+          if dx --version >/dev/null 2>&1; then
+            echo "working dx already present: $(dx --version)"
+          else
+            cargo install dioxus-cli --locked --force
+          fi
 
-      - name: Install dependencies
-        working-directory: playwright
-        run: npm i
-
-      - name: Install Playwright Browsers
-        working-directory: playwright
-        run: npx playwright install --with-deps chromium
-
-      - name: Run Playwright Tests
+      - name: Build app-shell (native arm64 dx build)
         env:
-          PLAYWRIGHT_BASE_URL: http://localhost:8080
-          PLAYWRIGHT_TIMEOUT: 60000
-        working-directory: playwright
+          # SAME compile-time env block as the ratel-app job — these bake
+          # into the binary. The k8s Service names in deploy/pr-preview
+          # mirror the compose hostnames, so the baked endpoints stay valid.
+          DYNAMO_TABLE_PREFIX: ratel-local
+          ENV: local
+          RUSTFLAGS: "-D warnings"
+          RUST_LOG: error
+          DYNAMO_ENDPOINT: http://localstack:4566
+          AWS_ACCESS_KEY_ID: test
+          AWS_SECRET_ACCESS_KEY: test
+          AWS_REGION: ap-northeast-2
+          AWS_ACCOUNT_ID: test
+          COMMIT: pr-${{ github.event.number }}
         run: |
-          make test
+          npm i
+          rm -rf target/dx
 
-      # - name: Setup SSH session with tmate
-      #   uses: mxschmitt/action-tmate@v3
-      #   if: failure()
-      #   timeout-minutes: 300
-      #   env:
-      #     DYNAMO_TABLE_PREFIX: ratel-local
-      #     ENV: local
-      #     RUSTFLAGS: "-D warnings"
-      #     RUST_LOG: info
-      #     DYNAMO_ENDPOINT: http://localstack:4566
-      #     AWS_ACCESS_KEY_ID: test
-      #     AWS_SECRET_ACCESS_KEY: test
-      #     AWS_REGION: ap-northeast-2
-      #     AWS_ACCOUNT_ID: test
-      #     COMMIT: pr-${{ github.sha }}
-      #     ECR: ratel/app-shell
-      #     PLAYWRIGHT_BASE_URL: http://localhost:8080
-      #     PLAYWRIGHT_TIMEOUT: 60000
+          cd app/ratel
+          make build-testing
 
-      #   with:
-      #     limit-access-to-actor: true
+      - name: Push app-shell image to the in-cluster registry (buildkit)
+        # Packages the dx output with app/ratel/Dockerfile via the in-cluster
+        # buildkitd and pushes registry.infra.svc.cluster.local:5000/
+        # ratel-app-shell:pr-<num> — the tag the e2e job deploys.
+        env:
+          NAME: ratel-app-shell
+          CONTEXT: target/dx/app-shell/release/web
+          DOCKERFILE: app/ratel/Dockerfile
+          IMAGE_TAG: pr-${{ github.event.number }}
+        run: bash scripts/buildkit-image.sh
 
-      - name: Move Playwright Tests
-        if: always()
+  # ────────────────────────────────────────────────────────────────────────
+  # e2e: PR-isolated Playwright run on the home k3s cluster — full rationale
+  # in the file header. Deploy deploy/pr-preview/*.yaml (localstack +
+  # localstack-init + qdrant + qdrant-init + app-shell + Ingress) into
+  # namespace ratel-pr-<num>, wait for the stack, run the suite in a k8s pod
+  # from the official Playwright image (kubectl cp in / exec / cp out — the
+  # runner pods have no docker CLI and no browser OS deps), publish the HTML
+  # report to the pr-webroot, then TEAR THE NAMESPACE DOWN — per project
+  # policy the preview exists only for the duration of the test run (unlike
+  # asset, which keeps it for the PR's lifetime). Only the report webroot
+  # (ratel-report-<num>.pr.biyard.co) outlives the run;
+  # pr-preview-cleanup.yml removes it on PR close and catches namespaces
+  # left behind by cancelled/crashed runs.
+  #
+  # NON-BLOCKING (`continue-on-error: true`) while the new infra path
+  # stabilizes; promote to a required check once green history backs it.
+  # pull_request-only — PR_NUM comes from github.event.number.
+  # ────────────────────────────────────────────────────────────────────────
+  e2e:
+    runs-on: self-hosted
+    timeout-minutes: 90
+    continue-on-error: true # non-blocking introduction — see job comment above
+    if: github.event_name == 'pull_request'
+    needs: [build-image]
+    env:
+      # PR number threads through everything: the namespace, the ingress
+      # host, the report webroot dir, and the image tag build-image pushed.
+      PR_NUM: "${{ github.event.number }}"
+      NS: "ratel-pr-${{ github.event.number }}"
+      HOST: "ratel-${{ github.event.number }}.pr.biyard.co"
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Recreate the per-PR namespace (clean state)
+        # Every run starts EMPTY: deleting the previous namespace first
+        # guarantees this run's pods pull the freshly pushed :pr-<num>
+        # image and that no state (tables, seeds, qdrant collections)
+        # leaks between runs. The preview is fully namespace-contained —
+        # no shared db to reset (unlike asset).
         run: |
-          mv playwright/playwright-report ./
+          set -euo pipefail
+          kubectl delete namespace "${NS}" --ignore-not-found --wait --timeout=180s || true
+          kubectl create namespace "${NS}"
 
-      - name: Upload test results
-        uses: actions/upload-artifact@v7
+      - name: Create the init-script ConfigMaps
+        # The localstack-init / qdrant-init Jobs run the SAME scripts the
+        # docker-compose testing profile mounts; here they're delivered as
+        # ConfigMaps built from the repo files (≈60 KB total — far under the
+        # 1 MB ConfigMap limit).
+        run: |
+          set -euo pipefail
+          kubectl -n "${NS}" create configmap pr-preview-scripts \
+            --from-file=scripts/localstack-init-entrypoint.sh \
+            --from-file=scripts/dynamodb-schema.json \
+            --from-file=scripts/qdrant-init-entrypoint.sh \
+            --dry-run=client -o yaml | kubectl apply -f -
+          kubectl -n "${NS}" create configmap pr-preview-dynamodb-data \
+            --from-file=scripts/dynamodb-data/ \
+            --dry-run=client -o yaml | kubectl apply -f -
+
+      - name: Deploy the preview stack (envsubst → kubectl apply)
+        # Plain YAML with ${PR_NUM} placeholders — no helm chart exists in
+        # ratel, and the stack is 4 workloads; envsubst keeps it inspectable.
+        # The substitution list is restricted to ${PR_NUM} so nothing else
+        # in the manifests can be clobbered by runner env. sed fallback in
+        # case the runner image lacks gettext's envsubst.
+        run: |
+          set -euo pipefail
+          subst() {
+            if command -v envsubst >/dev/null 2>&1; then
+              envsubst '${PR_NUM}'
+            else
+              sed "s|\${PR_NUM}|${PR_NUM}|g"
+            fi
+          }
+          for f in deploy/pr-preview/*.yaml; do
+            echo "---"
+            subst < "$f"
+          done | kubectl apply -f -
+
+      - name: Wait for the stack to answer through ingress-nginx
+        # Ordered waits so a failure names its culprit: init Jobs first
+        # (table + seeds + qdrant collection), then rollouts (app-shell's
+        # initContainer gates on the table, so its rollout implies the init
+        # chain), then prove the browser path with curl through the ingress.
+        # The PR host rides the ingress default certificate, hence -k;
+        # --resolve pins the public name to the controller's ClusterIP (no
+        # DNS round-trip, no hairpin dependency).
+        run: |
+          set -euo pipefail
+          kubectl -n "${NS}" wait --for=condition=complete job/localstack-init --timeout=420s
+          kubectl -n "${NS}" wait --for=condition=complete job/qdrant-init --timeout=300s
+          for d in $(kubectl -n "${NS}" get deploy -o name); do
+            echo "── rollout ${d}"
+            kubectl -n "${NS}" rollout status "$d" --timeout=420s
+          done
+          INGRESS_IP=$(kubectl -n infra get svc ingress-nginx-controller -o jsonpath='{.spec.clusterIP}')
+          [ -n "$INGRESS_IP" ] || { echo "::error::ingress-nginx-controller service not found"; exit 1; }
+          base="https://${HOST}"
+          deadline=$(( $(date +%s) + 180 ))
+          echo "waiting for ${base}/ (ingress=${INGRESS_IP}) ..."
+          until curl -sfk --resolve "${HOST}:443:${INGRESS_IP}" -o /dev/null "${base}/"; do
+            if [ "$(date +%s)" -ge "$deadline" ]; then
+              echo "::error::stack did not answer within 180s after rollout"
+              kubectl -n "${NS}" get pods -o wide || true
+              exit 1
+            fi
+            sleep 10
+          done
+          echo "✓ ingress serves app-shell at ${base}/"
+
+      - name: Run Playwright (k8s pod — official image; runners have no browser deps)
+        # The official Playwright image ships chromium + every OS dep for
+        # the version pinned in playwright/package-lock.json (1.58.2). The
+        # runner cannot bind-mount into a pod, so mirror the old docker-cp
+        # flow with kubectl cp: create the pod idle, copy the playwright/
+        # tree in, exec the suite, copy report/results back out.
+        # E2E_HOST_RESOLVER_RULES pins the PR host to the ingress ClusterIP
+        # inside chromium (and playwright.config.js flips ignoreHTTPSErrors
+        # on it — the PR host serves the ingress default cert). CI=true +
+        # PLAYWRIGHT_TIMEOUT reproduce the old job's retry/worker/timeout
+        # config inside the pod.
+        run: |
+          set -euo pipefail
+          INGRESS_IP=$(kubectl -n infra get svc ingress-nginx-controller -o jsonpath='{.spec.clusterIP}')
+          [ -n "$INGRESS_IP" ] || { echo "::error::ingress-nginx-controller service not found"; exit 1; }
+          pod="playwright"
+          kubectl -n "${NS}" delete pod "${pod}" --ignore-not-found --wait=true
+          kubectl -n "${NS}" run "${pod}" \
+            --image=mcr.microsoft.com/playwright:v1.58.2-noble \
+            --restart=Never \
+            --env=CI=true \
+            --env=PLAYWRIGHT_BASE_URL="https://${HOST}" \
+            --env=PLAYWRIGHT_TIMEOUT=60000 \
+            --env=E2E_HOST_RESOLVER_RULES="MAP ${HOST} ${INGRESS_IP}" \
+            --overrides='{"spec":{"nodeSelector":{"biyard.io/node-class":"main"}}}' \
+            --command -- sleep 7200
+          kubectl -n "${NS}" wait --for=condition=Ready "pod/${pod}" --timeout=300s
+          kubectl -n "${NS}" cp playwright "${pod}:/playwright"
+          set +e
+          kubectl -n "${NS}" exec "${pod}" -- sh -c 'cd /playwright && npm ci && npx playwright test tests/web'
+          ec=$?
+          set -e
+          kubectl -n "${NS}" cp "${pod}:/playwright/playwright-report" playwright/playwright-report 2>/dev/null || true
+          kubectl -n "${NS}" cp "${pod}:/playwright/test-results" playwright/test-results 2>/dev/null || true
+          kubectl -n "${NS}" delete pod "${pod}" --wait=false || true
+          exit "$ec"
+
+      - name: Dump pod logs (k3s namespace ratel-pr-${{ github.event.number }})
         if: always()
-        with:
-          name: playwright-test-results
-          path: |
-            playwright-report/
-          retention-days: 30
+        # Printed INTO THE JOB LOG rather than uploaded: the log is retained
+        # with the run at no artifact-storage cost, and the namespace is
+        # gone right after this — these lines are the only place the
+        # server-side story of a failed run survives.
+        run: |
+          kubectl -n "${NS}" get pods -o wide 2>&1 || true
+          for d in $(kubectl -n "${NS}" get deploy -o name 2>/dev/null); do
+            echo "===== ${d} ====="
+            kubectl -n "${NS}" logs "$d" --all-containers --tail 400 2>&1 || true
+          done
+          for j in $(kubectl -n "${NS}" get jobs -o name 2>/dev/null); do
+            echo "===== ${j} ====="
+            kubectl -n "${NS}" logs "$j" --tail 200 2>&1 || true
+          done
+
+      # NOTE: the Playwright report + traces are NOT uploaded as an
+      # artifact. The self-contained HTML report is published to the
+      # pr-webroot below and stays reachable at
+      # ratel-report-<num>.pr.biyard.co until the PR closes (linked from
+      # the sticky comment) — an artifact copy would duplicate 100+ MB per
+      # run for no extra reviewer value.
+
+      - name: Publish the Playwright report to the pr-webroot
+        if: always()
+        # The runner pods mount the cluster's `pr-webroot` PVC at
+        # /root/nginx — the same volume the infra pr-nginx serves
+        # `*.pr.biyard.co` from. `if: always()` — a failing run is exactly
+        # when the report matters most. Falls back to a placeholder if none
+        # was produced.
+        run: |
+          set -uo pipefail
+          test -d /root/nginx || {
+            echo "::error::/root/nginx (pr-webroot mount) is missing on this runner"
+            exit 1
+          }
+          dest="/root/nginx/ratel-report-${PR_NUM}"
+          rm -rf "${dest}"
+          mkdir -p "${dest}"
+          if [ -d playwright/playwright-report ] && [ -n "$(ls -A playwright/playwright-report 2>/dev/null)" ]; then
+            cp -a playwright/playwright-report/. "${dest}/"
+          else
+            echo "<!doctype html><title>no report</title><h1>No Playwright report produced</h1>" > "${dest}/index.html"
+          fi
+
+      # NOTE: no teardown here — the preview namespace (ratel-pr-<num>) and
+      # its exact-host Ingress stay RUNNING so the preview URL in the sticky
+      # comment stays clickable for the PR's lifetime (asset pattern).
+      # pr-preview-cleanup.yml tears the namespace + report webroot down when
+      # the PR closes. Each run's "Recreate" step still starts from a clean
+      # namespace.
+
+      - name: Sticky PR comment with the preview + report URLs
+        if: always()
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        # Update ONE marker-tagged comment in place (no per-run spam). The
+        # runner image has no `gh`, so use curl + jq (both present) against
+        # the REST API. Comment failures (e.g. a fork PR's read-only token)
+        # are non-fatal.
+        run: |
+          set -uo pipefail
+          marker="<!-- e2e-preview -->"
+          repo="${{ github.repository }}"
+          api="https://api.github.com"
+          app="https://ratel-${PR_NUM}.pr.biyard.co"
+          report="https://ratel-report-${PR_NUM}.pr.biyard.co"
+          run_url="https://github.com/${repo}/actions/runs/${{ github.run_id }}"
+          body="$(printf '%s\n### 🔎 PR preview (k3s e2e)\n\n- **App preview:** %s\n- **Playwright report:** %s\n\n<sub>updated by [run](%s) · namespace `ratel-pr-%s` and the report stay up until this PR closes</sub>\n' \
+            "$marker" "$app" "$report" "$run_url" "$PR_NUM")"
+          payload=$(jq -nc --arg b "$body" '{body:$b}')
+          auth="Authorization: Bearer ${GITHUB_TOKEN}"
+          acc="Accept: application/vnd.github+json"
+          existing=$(curl -sf -H "$auth" -H "$acc" \
+            "${api}/repos/${repo}/issues/${PR_NUM}/comments?per_page=100" 2>/dev/null \
+            | jq -r --arg m "$marker" 'map(select(.body | startswith($m))) | .[0].id // empty' 2>/dev/null || true)
+          if [ -n "${existing}" ]; then
+            curl -sf -X PATCH -H "$auth" -H "$acc" \
+              "${api}/repos/${repo}/issues/comments/${existing}" -d "$payload" >/dev/null \
+              && echo "updated comment ${existing}" || echo "::warning::sticky comment update failed (non-fatal)"
+          else
+            curl -sf -X POST -H "$auth" -H "$acc" \
+              "${api}/repos/${repo}/issues/${PR_NUM}/comments" -d "$payload" >/dev/null \
+              && echo "created sticky comment" || echo "::warning::sticky comment create failed (non-fatal)"
+          fi
 
   # ────────────────────────────────────────────────────────────────────────
   # Tauri Android build: produces a debuggable x86_64 APK that the smoke
@@ -661,10 +1013,12 @@ jobs:
     timeout-minutes: 60
 
     steps:
+      # Default-token checkout like every other job. The repo has no
+      # submodules (.gitmodules is empty), and the old
+      # `ssh-key: PULL_KEY_REPO` deploy key no longer authenticates
+      # (Permission denied on runs 30888104007 + rerun) — it was the only
+      # remaining user of that key.
       - uses: actions/checkout@v6
-        with:
-          submodules: recursive
-          ssh-key: ${{ secrets.PULL_KEY_REPO }}
 
       - uses: actions/setup-node@v4
         with:

@@ -1,0 +1,44 @@
+# qdrant-init — one-shot Job mirroring the compose `qdrant-init` service:
+# creates the ratel-local-main collection via
+# scripts/qdrant-init-entrypoint.sh (mounted from the pr-preview-scripts
+# ConfigMap, same as localstack-init).
+#
+# The compose service gates on qdrant being healthy; the script itself exits
+# non-zero while qdrant is unreachable (curl -sf), so here the Job's
+# backoffLimit provides the retry loop instead.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: qdrant-init
+  namespace: ratel-pr-${PR_NUM}
+  labels:
+    app: qdrant-init
+spec:
+  backoffLimit: 6
+  template:
+    metadata:
+      labels:
+        app: qdrant-init
+    spec:
+      # qdrant (jemalloc) aborts on the Pi node's 16K page-size kernel,
+      # and the Pi is the small node anyway — pin every preview/dev pod to
+      # the 4K-page main node (same class asset pins its e2e pod to).
+      nodeSelector:
+        biyard.io/node-class: main
+      restartPolicy: Never
+      containers:
+        - name: init
+          image: amazonlinux:2023
+          command: ["bash", "/scripts/qdrant-init-entrypoint.sh"]
+          env:
+            - name: ENDPOINT
+              value: http://qdrant:6333
+            - name: COLLECTION
+              value: ratel-local-main
+          volumeMounts:
+            - name: scripts
+              mountPath: /scripts
+      volumes:
+        - name: scripts
+          configMap:
+            name: pr-preview-scripts

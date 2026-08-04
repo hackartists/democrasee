@@ -1,0 +1,11 @@
+# PR preview namespace — everything for one PR lives here, so teardown is a
+# single `kubectl delete namespace ratel-pr-<num>`. ${PR_NUM} is substituted
+# by the e2e job (envsubst) before apply; the numeric file prefixes keep the
+# shell glob's apply order sensible (namespace first, ingress last).
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ratel-pr-${PR_NUM}
+  labels:
+    app.kubernetes.io/part-of: ratel-pr-preview
+    ratel.biyard.co/pr: "${PR_NUM}"

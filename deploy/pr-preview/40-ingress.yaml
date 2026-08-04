@@ -1,0 +1,31 @@
+# Ingress — exact-host rule ratel-<num>.pr.biyard.co → app-shell:8080.
+# An exact host in this namespace takes the name over from the wildcard
+# `*.pr.biyard.co` pr-nginx (ns infra) for as long as the namespace lives.
+# No tls: section on purpose — the host rides the ingress controller's
+# default certificate; the e2e curl uses -k and Playwright sets
+# ignoreHTTPSErrors (env-gated in playwright.config.js).
+# Annotations copied from the working asset PR-preview ingress
+# (unbounded body size + no request buffering, for uploads).
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: app-shell
+  namespace: ratel-pr-${PR_NUM}
+  labels:
+    app: app-shell
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-body-size: "0"
+    nginx.ingress.kubernetes.io/proxy-request-buffering: "off"
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: ratel-${PR_NUM}.pr.biyard.co
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: app-shell
+                port:
+                  name: http

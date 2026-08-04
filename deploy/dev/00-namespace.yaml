@@ -1,0 +1,11 @@
+# Dev deployment namespace — STABLE (unlike deploy/pr-preview's per-PR
+# namespaces, this one is never torn down by CI; rollback is a `git revert`
+# on dev, which redeploys the previous sha). Applied via envsubst by the
+# dev-workflow deploy job; this file has no placeholders but rides the same
+# apply loop.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ratel-dev
+  labels:
+    app.kubernetes.io/part-of: ratel-dev

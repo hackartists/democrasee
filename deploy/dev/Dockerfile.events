@@ -1,0 +1,36 @@
+# ratel-events — the Redpanda CDC producer (ratel_cdc) + worker
+# (ratel_worker) binaries, built NATIVELY on the arm64 runner with
+# `cargo build --release --features redpanda` and copied in by the
+# dev-workflow build-images job (the build context is a staging dir
+# containing just the two binaries — NOT the repo root).
+#
+# Base image choice — ubuntu:24.04, same as app/ratel/Dockerfile:
+#   - glibc compatibility is PROVEN: the app-shell `server` binary is built
+#     on the same runner and runs in ubuntu:24.04 today, so these binaries
+#     (same toolchain, same runner) run too. A debian:bookworm-slim base
+#     would risk a glibc-version mismatch (bookworm 2.36 < the runner's
+#     toolchain glibc) and distroless/cc would complicate debugging for no
+#     meaningful size win here.
+#   - librdkafka is STATICALLY linked into the binaries (rdkafka's
+#     `cmake-build` feature builds it from source and links it in), and our
+#     rdkafka dep enables NO ssl/sasl features (Cargo.toml:
+#     features = ["cmake-build", "tokio"] — brokers speak plaintext on the
+#     internal :9093 listener), so there is no dynamic libssl/libsasl2
+#     dependency. Remaining dynamic deps: glibc + libgcc + zlib (rdkafka's
+#     default `libz` feature links the system zlib) — all present in the
+#     ubuntu base. The build job runs `ldd` on both binaries and fails on
+#     any "not found" before the image is pushed.
+#   - ca-certificates: the AWS SDK (rustls) needs CA roots to reach real
+#     DynamoDB/Bedrock over TLS.
+FROM ubuntu:24.04
+
+RUN for i in 1 2 3; do apt-get update && break || sleep 5; done \
+    && apt-get install -y ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /usr/src/app
+COPY ratel_cdc ratel_worker ./
+
+# Default to the worker; the k8s Deployments set an explicit command
+# (./ratel_cdc or ./ratel_worker) per role anyway.
+CMD ["./ratel_worker"]

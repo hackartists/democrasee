@@ -10,6 +10,14 @@ import { CONFIGS } from "./tests/config";
 // import path from 'path';
 // dotenv.config({ path: path.resolve(__dirname, '.env') });
 
+// CI e2e reaches the per-PR preview vhost (`ratel-<num>.pr.biyard.co`) by
+// pinning that host to the ingress-nginx ClusterIP at the browser layer —
+// the Playwright pod has no /etc/hosts entry for it and the host rides the
+// ingress default (self-signed) certificate. The e2e job computes
+// `MAP <host> <ingress-ip>` at runtime and exports it here; unset locally,
+// so plain `make test` / `npx playwright test` runs are unaffected.
+const hostResolverRules = process.env.E2E_HOST_RESOLVER_RULES;
+
 /**
  * @see https://playwright.dev/docs/test-configuration
  */
@@ -35,6 +43,14 @@ export default defineConfig({
     trace: "on",
     video: "on",
     screenshot: "on",
+    // CI-only: resolve the PR vhost to the ingress ClusterIP + accept its
+    // self-signed cert. Env-gated so local runs keep default DNS/TLS.
+    ...(hostResolverRules
+      ? {
+          ignoreHTTPSErrors: true,
+          launchOptions: { args: [`--host-resolver-rules=${hostResolverRules}`] },
+        }
+      : {}),
   },
 
   /* Configure projects for major browsers */

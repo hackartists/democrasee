@@ -34,6 +34,10 @@ pub enum InfraError {
     #[translate(en = "Data processing failed", ko = "데이터 처리에 실패했습니다.")]
     StreamMissingImage,
 
+    #[error("Stream dispatch failed")]
+    #[translate(en = "Data processing failed", ko = "데이터 처리에 실패했습니다.")]
+    StreamDispatchFailed,
+
     #[error("Qdrant operation failed")]
     #[translate(en = "Search service failed", ko = "검색 서비스에 실패했습니다.")]
     QdrantFailed,

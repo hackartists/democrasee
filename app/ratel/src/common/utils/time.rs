@@ -31,10 +31,13 @@ pub fn kst_date_time_to_utc_millis(date: time::Date, hour: u8, minute: u8) -> i6
 }
 
 pub async fn sleep(_duration: std::time::Duration) {
-    #[cfg(feature = "web")]
+    // Feature flags alone can't pick the runtime: default features enable
+    // `web` AND `server` together, and a native binary built that way must
+    // not touch gloo (wasm-bindgen aborts off-wasm). Gate on target_arch.
+    #[cfg(all(feature = "web", target_arch = "wasm32"))]
     gloo_timers::future::sleep(_duration).await;
 
-    #[cfg(feature = "server")]
+    #[cfg(all(feature = "server", not(target_arch = "wasm32")))]
     tokio::time::sleep(_duration).await;
 }
 

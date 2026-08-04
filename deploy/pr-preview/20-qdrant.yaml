@@ -1,0 +1,61 @@
+# Qdrant — vector store, mirroring the compose `qdrant` service (testing
+# profile). Service name `qdrant` matches the compose hostname for the same
+# reason as localstack: any endpoint the app resolved against compose
+# hostnames keeps resolving in-cluster.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: qdrant
+  namespace: ratel-pr-${PR_NUM}
+  labels:
+    app: qdrant
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: qdrant
+  template:
+    metadata:
+      labels:
+        app: qdrant
+    spec:
+      # qdrant (jemalloc) aborts on the Pi node's 16K page-size kernel,
+      # and the Pi is the small node anyway — pin every preview/dev pod to
+      # the 4K-page main node (same class asset pins its e2e pod to).
+      nodeSelector:
+        biyard.io/node-class: main
+      containers:
+        - name: qdrant
+          image: qdrant/qdrant:latest
+          ports:
+            - containerPort: 6333
+              name: http
+            - containerPort: 6334
+              name: grpc
+          # Compose healthcheck is a bare TCP poke on 6333 — same here.
+          readinessProbe:
+            tcpSocket:
+              port: 6333
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            failureThreshold: 20
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: qdrant
+  namespace: ratel-pr-${PR_NUM}
+spec:
+  selector:
+    app: qdrant
+  ports:
+    - name: http
+      port: 6333
+      targetPort: 6333
+    - name: grpc
+      port: 6334
+      targetPort: 6334
