@@ -1018,10 +1018,12 @@ jobs:
     timeout-minutes: 60
 
     steps:
+      # Default-token checkout like every other job. The repo has no
+      # submodules (.gitmodules is empty), and the old
+      # `ssh-key: PULL_KEY_REPO` deploy key no longer authenticates
+      # (Permission denied on runs 30888104007 + rerun) — it was the only
+      # remaining user of that key.
       - uses: actions/checkout@v6
-        with:
-          submodules: recursive
-          ssh-key: ${{ secrets.PULL_KEY_REPO }}
 
       - uses: actions/setup-node@v4
         with:
