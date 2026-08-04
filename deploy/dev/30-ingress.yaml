@@ -1,19 +1,16 @@
-# Dev ingress — TWO hosts on one Ingress:
-#   - ratel-dev.biyard.co     LIVE now: the wildcard *.biyard.co DNS already
-#                             points at the cluster, and cert-manager issues
-#                             a real certificate for it (same
-#                             letsencrypt-route53 ClusterIssuer + annotation
-#                             set as the working dataroom prod ingress).
-#   - dev.ratel.foundation    INERT until its DNS is flipped from CloudFront
-#                             to the cluster — pre-wiring it here makes the
-#                             eventual cutover a pure DNS change. It is NOT
-#                             in the tls: hosts list on purpose: the
-#                             letsencrypt-route53 issuer solves DNS-01 in
-#                             the biyard.co Route53 zone and would fail (and
-#                             retry forever) on ratel.foundation. When the
-#                             DNS cutover happens, add the host to tls:
-#                             (with issuer access to that zone) — until a
-#                             cert exists it rides the ingress default cert.
+# Dev ingress — TWO hosts on one Ingress, both with real certificates:
+#   - ratel-dev.biyard.co     the wildcard *.biyard.co DNS points at the
+#                             cluster; cert-manager issues via the
+#                             letsencrypt-route53 ClusterIssuer (same
+#                             annotation set as the dataroom prod ingress).
+#   - dev.ratel.foundation    its DNS ALREADY points at the cluster (verified
+#                             2026-08-04), and the letsencrypt-route53
+#                             ClusterIssuer has a dns01 solver for the
+#                             ratel.foundation Route53 zone (same AWS account
+#                             as biyard.co), so cert-manager can issue for it
+#                             too. Each host gets its own tls entry/secret so
+#                             one zone's issuance hiccup can't block the
+#                             other's certificate.
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
@@ -52,3 +49,6 @@ spec:
     - hosts:
         - ratel-dev.biyard.co
       secretName: ratel-dev-biyard-co-tls
+    - hosts:
+        - dev.ratel.foundation
+      secretName: dev-ratel-foundation-tls
