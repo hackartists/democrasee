@@ -83,6 +83,10 @@ jobs:
       ENV: dev
       RUST_LOG: error
       RUSTFLAGS: "-D warnings"
+      # The runner PODS have an 8Gi memory limit; an unbounded cold
+      # `dx build --release` OOM-killed runner-4 (exit 137, run
+      # 30898864146). Bound rustc parallelism so the build fits the pod.
+      CARGO_BUILD_JOBS: "2"
       SERVICE: app-shell
       DOMAIN: dev.ratel.foundation
       BUCKET_NAME: metadata.ratel.foundation
