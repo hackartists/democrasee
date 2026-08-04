@@ -302,6 +302,18 @@ jobs:
       # runner agent (manifests as exit 143 / "runner shutdown signal"
       # during the link phase). Replace the runner's default 4 GB swap
       # with 12 GB on /mnt (the larger data disk) to absorb the spike.
+      - name: Free disk space
+        # The job died with "No space left on device" on /home/runner while
+        # restoring the multi-GB cargo/target cache (observed on run
+        # 30881118844 and the run before it). ubuntu-latest ships ~25 GB of
+        # preinstalled toolchains this job never uses — drop them so the
+        # cache extraction + cold build fit.
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc \
+            /usr/local/.ghcup /opt/hostedtoolcache/CodeQL /usr/local/share/boost
+          sudo docker image prune --all --force 2>/dev/null || true
+          df -h / /mnt
+
       - name: Add swap memory
         run: |
           sudo swapoff -a
@@ -483,13 +495,20 @@ jobs:
             echo "::warning::no known package manager; relying on preinstalled toolchain"
           fi
 
-      - uses: cargo-bins/cargo-binstall@main
-      - name: Install Dioxus-cli
+      - name: Install Dioxus-cli (source build — binstall binaries need newer glibc)
         run: |
-          # `--locked` makes the `cargo install` fallback (when binstall
-          # can't find a prebuilt binary) honor dioxus-cli's published
-          # Cargo.lock — see the identical note on the ubuntu-latest jobs.
-          cargo binstall -y dioxus-cli --force --locked
+          # binstall's prebuilt dx targets a newer glibc than the runner image
+          # ships (observed: `GLIBC_2.39 not found`), so build from source with
+          # `--locked` (honors dioxus-cli's published Cargo.lock — fresh
+          # resolution picks git2 0.21 which breaks auth-git2 0.5.8).
+          # ~/.cargo/bin persists on the self-hosted runner disk, so the
+          # compile is a one-time cost; the version check makes reruns a no-op
+          # while still replacing a glibc-broken binary from an earlier run.
+          if dx --version >/dev/null 2>&1; then
+            echo "working dx already present: $(dx --version)"
+          else
+            cargo install dioxus-cli --locked --force
+          fi
 
       - name: Build app-shell (native arm64 dx build)
         env:
