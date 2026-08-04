@@ -1,5 +1,42 @@
 name: Dev deploy
 
+# Deploys the ratel dev environment to the HOME k3s cluster on every push to
+# `dev`, replacing the AWS deploy path (Lambda build → cdk deploy → S3 sync +
+# CloudFront invalidation) this workflow used to run. Modeled on asset's
+# prod-workflow.yml. The AWS dev stack is NOT touched: it keeps serving its
+# last-deployed version at dev.ratel.foundation until that DNS is flipped;
+# `cdk/` and `make build-lambda` stay in the repo for an eventual return.
+#
+# Architecture:
+# - The CI runners are k8s PODS in the cluster (biyard org runners, arm64,
+#   buildctl + kubectl preset, no docker CLI). Both cluster nodes are arm64,
+#   so `make build` / `cargo build` on the runner natively produce the
+#   deployed binaries — no cross-compile.
+# - build-images builds TWO images with the REAL dev compile-time env (the
+#   same GitHub-secret env block the old lambda build job used —
+#   DYNAMO_TABLE_PREFIX=ratel-dev, real AWS creds baked via option_env!,
+#   DYNAMO_ENDPOINT=none → real AWS DynamoDB), pushed to the in-cluster
+#   registry tagged :dev-<sha> AND :dev (deploys pin the sha tag):
+#     * ratel-app-shell — `make build` (client web,fullstack + server
+#       `server`; NO bypass/local-dev/lambda), packaged with
+#       app/ratel/Dockerfile.
+#     * ratel-events   — ratel_cdc + ratel_worker (`--features redpanda`),
+#       packaged with deploy/dev/Dockerfile.events.
+# - deploy applies deploy/dev/*.yaml (envsubst) into the STABLE `ratel-dev`
+#   namespace: app-shell (2 replicas) + Service + Ingress
+#   (ratel-dev.biyard.co live now via the wildcard *.biyard.co DNS +
+#   cert-manager; dev.ratel.foundation pre-wired but inert until its DNS
+#   flips), plus the events tier (ratel-cdc + three role workers).
+#   Runtime secrets (LAUNCHPAD_*, QDRANT_API_KEY, the FCM service account)
+#   come from GitHub secrets → k8s Secrets, mirroring what cdk injected
+#   into the Lambda runtime env.
+# - smoke-test probes the PUBLIC https://ratel-dev.biyard.co with the real
+#   certificate.
+#
+# Rollback: `git revert` on dev redeploys the previous sha (images are
+# sha-tagged and stay in the registry). The AWS stack still holds its last
+# version as a second fallback until the DNS cutover.
+
 on:
   push:
     branches:
@@ -7,84 +44,440 @@ on:
 
 env:
   CARGO_TERM_COLOR: always
+  # ┌────────────────────────────────────────────────────────────────────┐
+  # │ EVENTS SHADOW-MODE SWITCH (docs/k3s-migration/01-events-redpanda-  │
+  # │ plan.md § W5, docs/k3s-migration/06-dev-deploy.md).                │
+  # │                                                                    │
+  # │ "1" (default) deploys the ratel-worker-* pods with                 │
+  # │ RATEL_WORKER_DRY_RUN=1: they consume dev.ratel.cdc.v1, evaluate    │
+  # │ the filter rules, log `dry-run: would dispatch`, commit offsets —  │
+  # │ and run NO handlers. The AWS EventBridge rules remain the live     │
+  # │ event path.                                                        │
+  # │                                                                    │
+  # │ Flipping this to "0" is THE DEV EVENTS CUTOVER and MUST happen     │
+  # │ together with disabling the EventBridge rules — running both live  │
+  # │ double-processes every event (double XP, double notifications).    │
+  # │ Procedure + rollback: docs/k3s-migration/06-dev-deploy.md.         │
+  # │ (The CDC producer has no dry-run — producing to the topic is       │
+  # │ side-effect-free while the workers shadow.)                        │
+  # └────────────────────────────────────────────────────────────────────┘
+  WORKER_DRY_RUN: "1"
 
 jobs:
-  deploy:
-    runs-on: ubuntu-latest
-    needs: [ratel-app-lambda]
+  # ── Build the two dev images (native arm64 → buildkitd → registry) ──────
+  # One job, not two: both images share the checkout, toolchain, caches, and
+  # the 60-line compile-time secret env block (option_env! bakes it into the
+  # binaries), and the events cargo build reuses dependency artifacts the dx
+  # server build just compiled.
+  #
+  # This job (the `dev` branch) SAVES the ratel-cargo-* / ratel-target-*
+  # caches that pr-workflow's self-hosted jobs restore read-only.
+  build-images:
+    runs-on: self-hosted
+    timeout-minutes: 120
+    env:
+      # ── Compile-time env — replicated from the old lambda build job. ──
+      # These bake into the binaries via option_env! (aws_config.rs etc.);
+      # the events binaries reach DynamoDB through the same baked config.
+      DISABLE_ANSI: true
+      ENV: dev
+      RUST_LOG: error
+      RUSTFLAGS: "-D warnings"
+      SERVICE: app-shell
+      DOMAIN: dev.ratel.foundation
+      BUCKET_NAME: metadata.ratel.foundation
+      SLACK_HOOK: ${{ secrets.DEV_SLACK }}
+
+      # Real AWS credentials — baked (option_env!) for DynamoDB/S3/Bedrock.
+      # The old job got AWS_* exported by configure-aws-credentials; here
+      # they are set directly. AWS_ACCOUNT_ID also silences the Makefile's
+      # `aws sts` default (no aws CLI on the runner).
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      AWS_REGION: ap-northeast-2
+      AWS_ACCOUNT_ID: ${{ secrets.ACCOUNT_ID }}
+      ACCOUNT_ID: ${{ secrets.ACCOUNT_ID }}
+
+      BINANCE_API_KEY: ${{ secrets.DEV_BINANCE_API_KEY }}
+      BINANCE_SECRET_KEY: ${{ secrets.DEV_BINANCE_SECRET_KEY }}
+      BINANCE_WEBHOOK: https://api.dev.ratel.foundation/v2/binances/webhooks
+      REDIRECT_DOMAIN: https://dev.ratel.foundation
+
+      KAIA_ENDPOINT: https://public-en-kairos.node.kaia.io
+      KAIA_ARCHIVE_ENDPOINT: https://archive-en-kairos.node.kaia.io
+      BLOCK_EXPLORER_URL: https://kairos.kaiascan.io
+      KAIA_FEEPAYER_KEY: ${{ secrets.DEV_KAIA_KEY }}
+      KAIA_FEEPAYER_ADDR: ${{ secrets.DEV_KAIA_ADDR }}
+      KAIA_OWNER_KEY: ${{ secrets.DEV_KAIA_KEY }}
+      KAIA_OWNER_ADDR: ${{ secrets.DEV_KAIA_ADDR }}
+
+      TELEGRAM_TOKEN: ${{ secrets.DEV_TELEGRAM_TOKEN }}
+
+      BBS_BLS_X: ${{ secrets.BBS_BLS_X }}
+      BBS_BLS_Y: ${{ secrets.BBS_BLS_Y }}
+      BBS_BLS_D: ${{ secrets.BBS_BLS_D }}
+      BBS_BLS_CRV: ${{ secrets.BBS_BLS_CRV }}
+
+      P256_X: ${{ secrets.P256_X }}
+      P256_Y: ${{ secrets.P256_Y }}
+      P256_D: ${{ secrets.P256_D }}
+      P256_CRV: ${{ secrets.P256_CRV }}
+
+      DYNAMO_TABLE_PREFIX: ratel-dev
+      DYNAMO_ENDPOINT: none
+
+      FIREBASE_API_KEY: ${{ secrets.FIREBASE_API_KEY }}
+      FIREBASE_AUTH_DOMAIN: ${{ secrets.FIREBASE_AUTH_DOMAIN }}
+      FIREBASE_PROJECT_ID: ${{ secrets.FIREBASE_PROJECT_ID }}
+      FIREBASE_STORAGE_BUCKET: ${{ secrets.FIREBASE_STORAGE_BUCKET }}
+      FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.FIREBASE_MESSAGING_SENDER_ID }}
+      FIREBASE_APP_ID: ${{ secrets.FIREBASE_APP_ID }}
+      FIREBASE_MEASUREMENT_ID: ${{ secrets.FIREBASE_MEASUREMENT_ID }}
+
+      PORTONE_STORE_ID: ${{ secrets.DEV_PORTONE_STORE_ID}}
+      PORTONE_INICIS_CHANNEL_KEY: ${{ secrets.DEV_PORTONE_INICIS_CHANNEL_KEY }}
+      PORTONE_API_SECRET: ${{ secrets.DEV_PORTONE_API_SECRET }}
+      PORTONE_KPN_CHANNEL_KEY: ${{ secrets.DEV_PORTONE_KPN_CHANNEL_KEY }}
+
+      QDRANT_URL: ${{ secrets.RATEL_QDRANT_URL }}
+      QDRANT_API_KEY: ${{secrets.DEV_QDRANT_API_KEY }}
+
+      WALLETCONNECT_PROJECT_ID: ${{ secrets.WALLETCONNECT_PROJECT_ID }}
+
+      RATEL_CANISTER_ID: uxrrr-q7777-77774-qaaaq-cai
+      IC_URL: https://icp.dev.biyard.co
+      ICP_IDENTITY_PEM: ${{ secrets.DEV_ICP_IDENTITY_PEM }}
+      VOTER_TAG_SECRET: ${{ secrets.DEV_VOTER_TAG_SECRET }}
+      ATTR_VOTING_AUTHORITY_JSON: ${{ secrets.DEV_ATTR_VOTING_AUTHORITY_JSON }}
+
+      # Cross-posting credential AEAD key (envvar form: "v<int>:<base64-no-pad 32 bytes>").
+      # Backup of the value is held in 1Password (admin-only vault) — losing
+      # this secret without the backup makes every stored connection
+      # unrecoverable. PREVIOUS is set only during a key rotation transition.
+      CROSS_POSTING_DATA_KEY: ${{ secrets.DEV_CROSS_POSTING_DATA_KEY }}
+      CROSS_POSTING_DATA_KEY_PREVIOUS: ${{ secrets.DEV_CROSS_POSTING_DATA_KEY_PREVIOUS }}
+
+      # LinkedIn OAuth (Phase 1B): CLIENT_ID is public-ish (rides the
+      # redirect URL), CLIENT_SECRET is server-only (token-exchange POST).
+      LINKEDIN_CLIENT_ID: ${{ secrets.DEV_LINKEDIN_CLIENT_ID }}
+      LINKEDIN_CLIENT_SECRET: ${{ secrets.DEV_LINKEDIN_CLIENT_SECRET }}
+      LAUNCHPAD_BASE_URL: ${{ secrets.DEV_LAUNCHPAD_BASE_URL }}
+      LAUNCHPAD_PROJECT_ID: ${{ secrets.DEV_LAUNCHPAD_PROJECT_ID }}
+      LAUNCHPAD_PARTNER_SECRET: ${{ secrets.DEV_LAUNCHPAD_PARTNER_SECRET }}
+      LAUNCHPAD_POINT_SYMBOL: RT
+
+      # Registry tags: the deploy pins dev-<sha>; :dev is a moving
+      # convenience alias for manual `kubectl set image` / debugging.
+      SHA_TAG: dev-${{ github.sha }}
+
     steps:
-      - uses: actions/checkout@v3
-        with:
-          submodules: recursive
-          ssh-key: ${{ secrets.PULL_KEY_REPO }}
+      - uses: actions/checkout@v6
 
-      - uses: aws-actions/configure-aws-credentials@v2
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ap-northeast-2
+      - name: Install Rust toolchain
+        # Idempotent (same pattern as pr-workflow's build-image): reuse the
+        # runner's stable toolchain, install only if absent; ensure the wasm
+        # target the dx client build needs.
+        run: |
+          if ! command -v rustup >/dev/null 2>&1; then
+            if [ -x "$HOME/.cargo/bin/rustup" ]; then
+              export PATH="$HOME/.cargo/bin:$PATH"
+            else
+              curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal --default-toolchain stable
+              export PATH="$HOME/.cargo/bin:$PATH"
+            fi
+            echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+          fi
+          rustup toolchain list | grep -q '^stable' || rustup toolchain install stable --profile minimal
+          rustup target list --installed | grep -q '^wasm32-unknown-unknown$' || rustup target add wasm32-unknown-unknown
 
-      - name: Download lambda artifact
-        uses: actions/download-artifact@v5
+      - name: Setup Node
+        uses: actions/setup-node@v4
         with:
-          name: app-shell-lambda-${{ github.sha }}
-          path: /tmp/lambda
+          node-version: "22"
 
-      # Extract bootstrap + public/ into cdk/.build/app-shell so that
-      # `lambda.Code.fromAsset(".build/app-shell")` in regional-lambda-stack.ts
-      # sees both. CDK re-zips this directory as the Lambda deployment bundle.
-      - name: Extract lambda package
+      - name: Cache cargo registry/index (save — warms the PR restore-only caches)
+        uses: actions/cache@v5
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: ratel-cargo-${{ runner.os }}-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ratel-cargo-${{ runner.os }}-
+
+      - name: Cache build target (save — warms the PR restore-only caches)
+        uses: actions/cache@v5
+        with:
+          path: target
+          key: ratel-target-${{ runner.os }}-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ratel-target-${{ runner.os }}-
+
+      - name: Install build deps (C toolchain, cmake for librdkafka, openssl headers)
+        # cmake + a C toolchain: rdkafka's `cmake-build` feature compiles
+        # librdkafka from source for the events binaries. Idempotent +
+        # multi-distro; a no-op once the persistent runner has them.
+        run: |
+          set -eu
+          if command -v cc >/dev/null 2>&1 && command -v cmake >/dev/null 2>&1 && command -v pkg-config >/dev/null 2>&1 && [ -f /usr/include/openssl/ssl.h ]; then
+            echo "C toolchain + cmake + pkg-config + openssl headers already present"
+            exit 0
+          fi
+          SUDO=""
+          if command -v sudo >/dev/null 2>&1; then SUDO="sudo"; fi
+          if command -v apt-get >/dev/null 2>&1; then
+            $SUDO apt-get update -qq
+            $SUDO apt-get install -y --no-install-recommends build-essential cmake make pkg-config libssl-dev
+          elif command -v dnf >/dev/null 2>&1; then
+            $SUDO dnf install -y gcc make cmake pkgconf-pkg-config openssl-devel
+          elif command -v apk >/dev/null 2>&1; then
+            $SUDO apk add --no-cache build-base cmake pkgconfig openssl-dev
+          else
+            echo "::warning::no known package manager; relying on preinstalled toolchain"
+          fi
+
+      - uses: cargo-bins/cargo-binstall@main
+      - name: Install Dioxus-cli
+        run: |
+          # `--locked` pins dioxus-cli's published Cargo.lock on the source-
+          # build fallback (git2 0.21 breaks auth-git2 0.5.8 otherwise).
+          cargo binstall -y dioxus-cli --force --locked
+
+      - name: Build app-shell (make build — dev release, no bypass/local-dev/lambda)
+        run: |
+          npm i
+          rm -rf target/dx
+
+          cd app/ratel
+          make build
+
+      - name: Push app-shell image (buildkit → :dev-<sha> and :dev)
         run: |
           set -euo pipefail
-          rm -rf cdk/.build/app-shell
-          mkdir -p cdk/.build/app-shell
-          unzip -o /tmp/lambda/app-shell-lambda.zip -d cdk/.build/app-shell
-          chmod +x cdk/.build/app-shell/bootstrap
-          ls -la cdk/.build/app-shell
+          export NAME=ratel-app-shell
+          export CONTEXT=target/dx/app-shell/release/web
+          export DOCKERFILE=app/ratel/Dockerfile
+          IMAGE_TAG="${SHA_TAG}" bash scripts/buildkit-image.sh
+          # Second push is a cache hit in buildkitd — just retags.
+          IMAGE_TAG=dev bash scripts/buildkit-image.sh
 
-      # FCM push: the backend signs FCM HTTP v1 requests with a Firebase
-      # service-account key. It's a SECRET (never committed) — inject it from a
-      # GitHub secret into the lambda bundle at the path the runtime reads
-      # (GOOGLE_APPLICATION_CREDENTIALS=.gcp/firebase-service-account.json, set
-      # by cdk/lib/regional-lambda-stack.ts). Must run AFTER the extract (which
-      # rm -rf's the dir) and BEFORE deploy (CDK zips this dir). Guarded so a
-      # missing secret just disables push (fcm.rs skips gracefully).
-      - name: Write Firebase service account into lambda bundle
-        env:
-          FIREBASE_SERVICE_ACCOUNT_JSON_BASE64: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON_BASE64 }}
+      - name: Build events binaries (ratel_cdc + ratel_worker, --features redpanda)
+        # Same compile-time env (job env above) — the events binaries reach
+        # real DynamoDB via the same baked AwsConfig/DynamoConfig. Events
+        # runtime config (RATEL_*) is env-read at runtime by design.
         run: |
-          if [ -n "$FIREBASE_SERVICE_ACCOUNT_JSON_BASE64" ]; then
-            mkdir -p cdk/.build/app-shell/.gcp
-            echo "$FIREBASE_SERVICE_ACCOUNT_JSON_BASE64" | base64 -d \
-              > cdk/.build/app-shell/.gcp/firebase-service-account.json
-            echo "firebase service account written ($(wc -c < cdk/.build/app-shell/.gcp/firebase-service-account.json) bytes)"
+          cd app/ratel
+          cargo build --release --features redpanda --bin ratel_cdc --bin ratel_worker
+
+      - name: Verify events binary linkage (ldd)
+        # deploy/dev/Dockerfile.events documents the base-image reasoning:
+        # librdkafka is statically linked (cmake-build) with no ssl/sasl
+        # features, so the only dynamic deps should be glibc/libgcc/zlib —
+        # all present in ubuntu:24.04. Fail here, before pushing, if a
+        # library would be missing at runtime.
+        run: |
+          set -euo pipefail
+          for bin in target/release/ratel_cdc target/release/ratel_worker; do
+            echo "── ldd ${bin}"
+            ldd "$bin"
+            if ldd "$bin" | grep -q "not found"; then
+              echo "::error::${bin} has unresolved dynamic libraries"
+              exit 1
+            fi
+          done
+
+      - name: Push events image (buildkit → :dev-<sha> and :dev)
+        # Stage just the two binaries as the build context — sending the
+        # multi-GB target/ tree to buildkitd would be pure waste.
+        run: |
+          set -euo pipefail
+          rm -rf .build/events
+          mkdir -p .build/events
+          cp target/release/ratel_cdc target/release/ratel_worker .build/events/
+          export NAME=ratel-events
+          export CONTEXT=.build/events
+          export DOCKERFILE=deploy/dev/Dockerfile.events
+          IMAGE_TAG="${SHA_TAG}" bash scripts/buildkit-image.sh
+          IMAGE_TAG=dev bash scripts/buildkit-image.sh
+
+  # ── Deploy (envsubst deploy/dev/*.yaml → k3s namespace `ratel-dev`) ─────
+  deploy:
+    needs: [build-images]
+    runs-on: self-hosted
+    timeout-minutes: 45
+    # One dev deploy at a time; a newer push queues behind (not cancels) the
+    # in-flight one so a half-rolled namespace is never abandoned. Job-level
+    # so the tauri/artifact jobs of concurrent runs don't serialize.
+    concurrency:
+      group: ratel-dev-deploy
+      cancel-in-progress: false
+    env:
+      SHA_TAG: dev-${{ github.sha }}
+      NAMESPACE: ratel-dev
+      HOST: ratel-dev.biyard.co
+      # Runtime-injected config, mirroring what cdk/bin/cdk.ts put into the
+      # Lambda RUNTIME env (read via std::env::var — no rebuild needed).
+      LAUNCHPAD_BASE_URL: ${{ secrets.DEV_LAUNCHPAD_BASE_URL }}
+      LAUNCHPAD_PROJECT_ID: ${{ secrets.DEV_LAUNCHPAD_PROJECT_ID }}
+      LAUNCHPAD_PARTNER_SECRET: ${{ secrets.DEV_LAUNCHPAD_PARTNER_SECRET }}
+      LAUNCHPAD_POINT_SYMBOL: RT
+      QDRANT_API_KEY: ${{ secrets.DEV_QDRANT_API_KEY }}
+      # FCM service-account JSON (base64) — mounted as a Secret volume at
+      # the path GOOGLE_APPLICATION_CREDENTIALS points to; missing secret
+      # just disables push (fcm.rs skips gracefully), same as the lambda
+      # bundle behavior.
+      FIREBASE_SERVICE_ACCOUNT_JSON_BASE64: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON_BASE64 }}
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Verify cluster access
+        # The runner pods carry in-cluster kubectl credentials; fail early
+        # with a clear message if this job landed somewhere else.
+        run: |
+          set -euo pipefail
+          kubectl get ns >/dev/null || {
+            echo "::error::runner has no cluster access — is this a k3s runner pod?"
+            exit 1
+          }
+
+      - name: Create namespace + runtime Secrets
+        # Secret-handling mirrors asset's prod deploy: only non-empty GitHub
+        # secrets become keys, so an unset secret simply leaves the env var
+        # absent (the manifests reference the Secret as optional).
+        run: |
+          set -euo pipefail
+          kubectl create namespace "${NAMESPACE}" --dry-run=client -o yaml | kubectl apply -f -
+
+          args=()
+          add() { if [ -n "$2" ]; then args+=(--from-literal="$1=$2"); fi; }
+          add LAUNCHPAD_BASE_URL "${LAUNCHPAD_BASE_URL}"
+          add LAUNCHPAD_PROJECT_ID "${LAUNCHPAD_PROJECT_ID}"
+          add LAUNCHPAD_PARTNER_SECRET "${LAUNCHPAD_PARTNER_SECRET}"
+          add LAUNCHPAD_POINT_SYMBOL "${LAUNCHPAD_POINT_SYMBOL}"
+          add QDRANT_API_KEY "${QDRANT_API_KEY}"
+          kubectl -n "${NAMESPACE}" create secret generic ratel-dev-secrets \
+            "${args[@]}" --dry-run=client -o yaml | kubectl apply -f -
+
+          # FCM service account → Secret with the single JSON file the
+          # firebase volume mounts. Skipped (and any stale copy removed) when
+          # the GitHub secret is unset.
+          if [ -n "${FIREBASE_SERVICE_ACCOUNT_JSON_BASE64}" ]; then
+            tmp=$(mktemp -d)
+            echo "${FIREBASE_SERVICE_ACCOUNT_JSON_BASE64}" | base64 -d > "${tmp}/firebase-service-account.json"
+            kubectl -n "${NAMESPACE}" create secret generic ratel-dev-firebase \
+              --from-file="firebase-service-account.json=${tmp}/firebase-service-account.json" \
+              --dry-run=client -o yaml | kubectl apply -f -
+            rm -rf "${tmp}"
           else
+            kubectl -n "${NAMESPACE}" delete secret ratel-dev-firebase --ignore-not-found
             echo "FIREBASE_SERVICE_ACCOUNT_JSON_BASE64 not set — push disabled (graceful skip)"
           fi
 
-      - name: Deploy
-        env:
-          ENV: dev
-          REGION: ap-northeast-2
-          ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          DOMAIN: dev.ratel.foundation
-          STACK: ratel-dev-stack
-          DEPLOY_STORYBOOK: false
-          DEPLOY_STATIC: false
-          HIGH_TRAFFIC_REGION: ap-northeast-2
-
-          # Launchpad partner config → injected into the Lambda RUNTIME env by
-          # cdk/bin/cdk.ts (read via std::env::var at runtime, no rebuild needed).
-          LAUNCHPAD_BASE_URL: ${{ secrets.DEV_LAUNCHPAD_BASE_URL }}
-          LAUNCHPAD_PROJECT_ID: ${{ secrets.DEV_LAUNCHPAD_PROJECT_ID }}
-          LAUNCHPAD_PARTNER_SECRET: ${{ secrets.DEV_LAUNCHPAD_PARTNER_SECRET }}
-          LAUNCHPAD_POINT_SYMBOL: RT
-
-          QDRANT_API_KEY: ${{secrets.DEV_QDRANT_API_KEY }}
+      - name: Apply the dev manifests (envsubst → kubectl apply)
+        # Substitution restricted to ${SHA_TAG} (image pin) and
+        # ${WORKER_DRY_RUN} (events shadow-mode switch — see the workflow
+        # env comment). sed fallback if the runner lacks gettext.
         run: |
-          npm i -g aws-cdk
-          make cdk-deploy-v2
+          set -euo pipefail
+          subst() {
+            if command -v envsubst >/dev/null 2>&1; then
+              envsubst '${SHA_TAG} ${WORKER_DRY_RUN}'
+            else
+              sed -e "s|\${SHA_TAG}|${SHA_TAG}|g" -e "s|\${WORKER_DRY_RUN}|${WORKER_DRY_RUN}|g"
+            fi
+          }
+          for f in deploy/dev/*.yaml; do
+            echo "---"
+            subst < "$f"
+          done | kubectl apply -f -
+
+      - name: Wait for every Deployment to roll out
+        run: |
+          set -euo pipefail
+          for d in $(kubectl -n "${NAMESPACE}" get deploy -o name); do
+            echo "── rollout ${d}"
+            kubectl -n "${NAMESPACE}" rollout status "$d" --timeout=600s
+          done
+
+      - name: Wait for app-shell to answer through ingress-nginx
+        # Pin the host to the ingress controller's ClusterIP (`-k`: the TLS
+        # cert may still be issuing via DNS-01 on the very first deploy —
+        # routing works before the real cert lands).
+        run: |
+          set -uo pipefail
+          INGRESS_IP=$(kubectl -n infra get svc ingress-nginx-controller -o jsonpath='{.spec.clusterIP}')
+          [ -n "$INGRESS_IP" ] || { echo "::error::ingress-nginx-controller service not found"; exit 1; }
+          base="https://${HOST}"
+          deadline=$(( $(date +%s) + 300 ))
+          echo "waiting for ${base}/ (ingress=${INGRESS_IP}) ..."
+          until curl -sfk --resolve "${HOST}:443:${INGRESS_IP}" -o /dev/null "${base}/"; do
+            if [ "$(date +%s)" -ge "$deadline" ]; then
+              echo "::error::app-shell did not answer within 300s"
+              kubectl -n "${NAMESPACE}" get pods -o wide || true
+              exit 1
+            fi
+            sleep 10
+          done
+          echo "✓ ingress serves app-shell at ${base}/"
+
+      - name: Check the events tier (pods running + shadow-mode heartbeat)
+        # Pods must be Running (their rollouts already succeeded above);
+        # then look for one `dry-run: would dispatch` (shadow mode matched a
+        # rule) or `worker consuming` (consumer started) line. A quiet CDC
+        # stream is normal on dev, so a missing log line is a WARNING, not a
+        # failure — a crash-looping worker would have failed rollout status.
+        run: |
+          set -uo pipefail
+          kubectl -n "${NAMESPACE}" get pods -l tier=events -o wide
+          found=0
+          for d in ratel-worker-default ratel-worker-analyze ratel-worker-egress; do
+            if kubectl -n "${NAMESPACE}" logs "deploy/${d}" --tail 200 2>/dev/null \
+               | grep -qE "dry-run: would dispatch|worker consuming"; then
+              echo "✓ ${d}: consumer heartbeat found"
+              found=1
+            fi
+          done
+          if [ "$found" != "1" ]; then
+            echo "::warning::no 'worker consuming' / 'dry-run: would dispatch' line in worker logs yet — stream may just be quiet; check logs manually"
+          fi
+
+      - name: Dump pod state on failure
+        if: failure()
+        run: |
+          kubectl -n "${NAMESPACE}" get pods -o wide 2>&1 || true
+          kubectl -n "${NAMESPACE}" get events --sort-by=.lastTimestamp 2>&1 | tail -30 || true
+          for d in $(kubectl -n "${NAMESPACE}" get deploy -o name 2>/dev/null); do
+            echo "===== ${d} ====="
+            kubectl -n "${NAMESPACE}" logs "$d" --all-containers --tail 200 2>&1 || true
+          done
+
+  # ── Smoke test — confirm the PUBLIC URL responds ────────────────────────
+  smoke-test:
+    needs: deploy
+    runs-on: self-hosted
+    timeout-minutes: 15
+    env:
+      HOST: ratel-dev.biyard.co
+    steps:
+      - name: Probe https://ratel-dev.biyard.co via public DNS
+        # Full public path: wildcard *.biyard.co DNS → router 443 →
+        # ingress-nginx → app-shell, with the REAL certificate (no -k).
+        # Generous retry window because the very first deploy may still be
+        # finishing DNS-01 certificate issuance.
+        run: |
+          set -euo pipefail
+          ok=0
+          for i in $(seq 1 24); do
+            code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 20 "https://${HOST}/" || echo "000")
+            echo "attempt $i: / -> ${code}"
+            if [ "$code" = "200" ]; then ok=1; break; fi
+            sleep 20
+          done
+          if [ "$ok" != "1" ]; then
+            echo "::error::https://${HOST} did not serve 200 within ~8 min"
+            exit 1
+          fi
+          echo "✓ https://${HOST} is live"
 
   # ratel-canister:
   #   runs-on: ubuntu-latest
@@ -136,174 +529,12 @@ jobs:
   #         ENV: dev
   #       run: make status
 
-  ratel-app-lambda:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v6
-        with:
-          submodules: recursive
-          ssh-key: ${{ secrets.PULL_KEY_REPO }}
-
-      - name: Restore cache
-        id: app-shell-lambda-build-cache
-        uses: actions/cache/restore@v5
-        with:
-          key: app-shell-lambda-build-${{ runner.os }}-rust-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: |
-            app-shell-lambda-build-${{ runner.os }}-rust-
-          path: |
-            ~/.cargo/bin
-            target
-
-      - uses: aws-actions/configure-aws-credentials@v4
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ap-northeast-2
-
-      - name: Login to Amazon ECR
-        id: ratel-ecr
-        uses: aws-actions/amazon-ecr-login@v2
-
-      - name: Building APIs
-        env:
-          REGION: ap-northeast-2
-          ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          DISABLE_ANSI: true
-
-          ENV: dev
-          RUST_LOG: error
-          SERVICE: app-shell
-          DOMAIN: dev.ratel.foundation
-          BUCKET_NAME: metadata.ratel.foundation
-          SLACK_HOOK: ${{ secrets.DEV_SLACK }}
-
-          BINANCE_API_KEY: ${{ secrets.DEV_BINANCE_API_KEY }}
-          BINANCE_SECRET_KEY: ${{ secrets.DEV_BINANCE_SECRET_KEY }}
-          BINANCE_WEBHOOK: https://api.dev.ratel.foundation/v2/binances/webhooks
-          REDIRECT_DOMAIN: https://dev.ratel.foundation
-
-          KAIA_ENDPOINT: https://public-en-kairos.node.kaia.io
-          KAIA_ARCHIVE_ENDPOINT: https://archive-en-kairos.node.kaia.io
-          BLOCK_EXPLORER_URL: https://kairos.kaiascan.io
-          KAIA_FEEPAYER_KEY: ${{ secrets.DEV_KAIA_KEY }}
-          KAIA_FEEPAYER_ADDR: ${{ secrets.DEV_KAIA_ADDR }}
-          KAIA_OWNER_KEY: ${{ secrets.DEV_KAIA_KEY }}
-          KAIA_OWNER_ADDR: ${{ secrets.DEV_KAIA_ADDR }}
-
-          TELEGRAM_TOKEN: ${{ secrets.DEV_TELEGRAM_TOKEN }}
-
-          BBS_BLS_X: ${{ secrets.BBS_BLS_X }}
-          BBS_BLS_Y: ${{ secrets.BBS_BLS_Y }}
-          BBS_BLS_D: ${{ secrets.BBS_BLS_D }}
-          BBS_BLS_CRV: ${{ secrets.BBS_BLS_CRV }}
-
-          P256_X: ${{ secrets.P256_X }}
-          P256_Y: ${{ secrets.P256_Y }}
-          P256_D: ${{ secrets.P256_D }}
-          P256_CRV: ${{ secrets.P256_CRV }}
-
-          DYNAMO_TABLE_PREFIX: ratel-dev
-          DYNAMO_ENDPOINT: none
-          # RUST_FLAG: "--features lambda --release"
-          ACCOUNT_ID: ${{ secrets.ACCOUNT_ID }}
-
-          FIREBASE_API_KEY: ${{ secrets.FIREBASE_API_KEY }}
-          FIREBASE_AUTH_DOMAIN: ${{ secrets.FIREBASE_AUTH_DOMAIN }}
-          FIREBASE_PROJECT_ID: ${{ secrets.FIREBASE_PROJECT_ID }}
-          FIREBASE_STORAGE_BUCKET: ${{ secrets.FIREBASE_STORAGE_BUCKET }}
-          FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.FIREBASE_MESSAGING_SENDER_ID }}
-          FIREBASE_APP_ID: ${{ secrets.FIREBASE_APP_ID }}
-          FIREBASE_MEASUREMENT_ID: ${{ secrets.FIREBASE_MEASUREMENT_ID }}
-
-          PORTONE_STORE_ID: ${{ secrets.DEV_PORTONE_STORE_ID}}
-          PORTONE_INICIS_CHANNEL_KEY: ${{ secrets.DEV_PORTONE_INICIS_CHANNEL_KEY }}
-          PORTONE_API_SECRET: ${{ secrets.DEV_PORTONE_API_SECRET }}
-          PORTONE_KPN_CHANNEL_KEY: ${{ secrets.DEV_PORTONE_KPN_CHANNEL_KEY }}
-
-          QDRANT_URL: ${{ secrets.RATEL_QDRANT_URL }}
-          QDRANT_API_KEY: ${{secrets.DEV_QDRANT_API_KEY }}
-
-          WALLETCONNECT_PROJECT_ID: ${{ secrets.WALLETCONNECT_PROJECT_ID }}
-
-          RATEL_CANISTER_ID: uxrrr-q7777-77774-qaaaq-cai
-          IC_URL: https://icp.dev.biyard.co
-          ICP_IDENTITY_PEM: ${{ secrets.DEV_ICP_IDENTITY_PEM }}
-          VOTER_TAG_SECRET: ${{ secrets.DEV_VOTER_TAG_SECRET }}
-          ATTR_VOTING_AUTHORITY_JSON: ${{ secrets.DEV_ATTR_VOTING_AUTHORITY_JSON }}
-
-          # Cross-posting credential AEAD key (envvar form: "v<int>:<base64-no-pad 32 bytes>").
-          # Backup of the value is held in 1Password (admin-only vault) — losing
-          # this secret without the backup makes every stored connection
-          # unrecoverable. PREVIOUS is set only during a key rotation transition.
-          CROSS_POSTING_DATA_KEY: ${{ secrets.DEV_CROSS_POSTING_DATA_KEY }}
-          CROSS_POSTING_DATA_KEY_PREVIOUS: ${{ secrets.DEV_CROSS_POSTING_DATA_KEY_PREVIOUS }}
-
-          # LinkedIn OAuth (Phase 1B). Two values from the LinkedIn Developer
-          # Portal → app → "Auth" tab. CLIENT_ID is public-ish (gets sent in
-          # the redirect URL), CLIENT_SECRET is server-only and used during
-          # the token-exchange POST.
-          LINKEDIN_CLIENT_ID: ${{ secrets.DEV_LINKEDIN_CLIENT_ID }}
-          LINKEDIN_CLIENT_SECRET: ${{ secrets.DEV_LINKEDIN_CLIENT_SECRET }}
-          LAUNCHPAD_BASE_URL: ${{ secrets.DEV_LAUNCHPAD_BASE_URL }}
-          LAUNCHPAD_PROJECT_ID: ${{ secrets.DEV_LAUNCHPAD_PROJECT_ID }}
-          LAUNCHPAD_PARTNER_SECRET: ${{ secrets.DEV_LAUNCHPAD_PARTNER_SECRET }}
-          LAUNCHPAD_POINT_SYMBOL: RT
-        run: |
-          rm -rf target/dx
-
-          cd app/ratel
-          make build-lambda
-
-      - name: Deploy to S3
-        env:
-          BUCKET: ${{ secrets.DEV_RATEL_BUCKET }}
-          CDN: ${{ secrets.DEV_RATEL_CDN }}
-        run: |
-          aws s3 sync target/dx/app-shell/release/web/public $BUCKET
-          aws cloudfront create-invalidation --distribution-id $CDN --paths "/*"
-
-      # Build a Lambda deployment zip with `bootstrap` at the root plus the
-      # SSR `public/` tree so the runtime can serve static assets alongside
-      # server functions. CDK's `Code.fromAsset("<dir>")` will re-zip the
-      # directory itself, but we also upload this zip as the CI artifact so
-      # the deploy job (and anyone running `aws lambda update-function-code`
-      # out-of-band) has a ready-to-push package.
-      - name: Package lambda deployment zip
-        run: |
-          set -euo pipefail
-          rm -rf .build/app-shell app-shell-lambda.zip
-          mkdir -p .build/app-shell
-          cp target/dx/app-shell/release/web/server .build/app-shell/bootstrap
-          cp -r target/dx/app-shell/release/web/public .build/app-shell/public
-          chmod +x .build/app-shell/bootstrap
-          (cd .build/app-shell && zip -r ../../app-shell-lambda.zip . >/dev/null)
-          unzip -l app-shell-lambda.zip | head -20
-
-      - name: Upload lambda artifact
-        uses: actions/upload-artifact@v7
-        with:
-          name: app-shell-lambda-${{ github.sha }}
-          path: ${{ github.workspace }}/app-shell-lambda.zip
-          if-no-files-found: error
-          retention-days: 7
-
-      - name: Delete Previous Cache
-        if: ${{ steps.app-shell-lambda-build-cache.outputs.cache-hit }}
-        continue-on-error: true
-        run: |
-          gh extension install actions/gh-actions-cache
-          gh actions-cache delete "${{ steps.app-shell-lambda-build-cache.outputs.cache-primary-key }}" --confirm
-
-      - name: Save cache
-        if: always()
-        uses: actions/cache/save@v5
-        with:
-          key: ${{ steps.app-shell-lambda-build-cache.outputs.cache-primary-key }}
-          path: |
-            ~/.cargo/bin
-            target
+  # NOTE: the `ratel-app-lambda` job (Lambda build via `make build-lambda`,
+  # S3 sync + CloudFront invalidation, lambda zip artifact) and the cdk
+  # `deploy` job were REMOVED when dev moved to the home k3s cluster (see
+  # the file header). `cdk/`, `make build-lambda`, and the AWS secrets stay
+  # in place for an eventual return; the AWS dev stack keeps serving its
+  # last-deployed version until the dev.ratel.foundation DNS is flipped.
 
   # android-apk:
   #   runs-on: ubuntu-latest
@@ -601,7 +832,8 @@ jobs:
     if: github.ref == 'refs/heads/dev'
     needs: [deploy]
     steps:
-      - uses: actions/checkout@v3
+      # v3 → v6: actionlint flags the node16-era checkout runner as too old.
+      - uses: actions/checkout@v6
         with:
           submodules: recursive
           ssh-key: ${{ secrets.PULL_KEY_REPO }}
@@ -612,6 +844,14 @@ jobs:
           head: dev
           token: ${{ secrets.GITHUB_TOKEN }}
 
+  # ────────────────────────────────────────────────────────────────────────
+  # ratel-app: x86_64 testing docker image + artifact, KEPT on purpose —
+  # it is not part of the AWS deploy chain. It (a) SAVES the
+  # `app-shell-build-*` cache that pr-workflow's ubuntu-latest jobs
+  # (dx-check / ratel-app / ratel-app-testing) restore read-only, and
+  # (b) uploads the x86 app-shell-image artifact usable for local compose
+  # debugging of the dev tree.
+  # ────────────────────────────────────────────────────────────────────────
   ratel-app:
     runs-on: ubuntu-latest
 

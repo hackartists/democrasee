@@ -1,0 +1,54 @@
+# Dev ingress — TWO hosts on one Ingress:
+#   - ratel-dev.biyard.co     LIVE now: the wildcard *.biyard.co DNS already
+#                             points at the cluster, and cert-manager issues
+#                             a real certificate for it (same
+#                             letsencrypt-route53 ClusterIssuer + annotation
+#                             set as the working dataroom prod ingress).
+#   - dev.ratel.foundation    INERT until its DNS is flipped from CloudFront
+#                             to the cluster — pre-wiring it here makes the
+#                             eventual cutover a pure DNS change. It is NOT
+#                             in the tls: hosts list on purpose: the
+#                             letsencrypt-route53 issuer solves DNS-01 in
+#                             the biyard.co Route53 zone and would fail (and
+#                             retry forever) on ratel.foundation. When the
+#                             DNS cutover happens, add the host to tls:
+#                             (with issuer access to that zone) — until a
+#                             cert exists it rides the ingress default cert.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: app-shell
+  namespace: ratel-dev
+  labels:
+    app: app-shell
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-route53
+    nginx.ingress.kubernetes.io/proxy-body-size: "0"
+    nginx.ingress.kubernetes.io/proxy-request-buffering: "off"
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: ratel-dev.biyard.co
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: app-shell
+                port:
+                  name: http
+    - host: dev.ratel.foundation
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: app-shell
+                port:
+                  name: http
+  tls:
+    - hosts:
+        - ratel-dev.biyard.co
+      secretName: ratel-dev-biyard-co-tls

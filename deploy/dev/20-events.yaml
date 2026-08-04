@@ -1,0 +1,215 @@
+# Events tier — the Redpanda CDC producer + worker consumers
+# (docs/k3s-migration/01-events-redpanda-plan.md). All four Deployments run
+# the ratel-events image (deploy/dev/Dockerfile.events: the ratel_cdc +
+# ratel_worker binaries built with --features redpanda and the same
+# compile-time dev env as app-shell — DynamoDB access is baked in).
+# Events config (RATEL_*) is RUNTIME env by design (events/config.rs), so
+# one image serves every role and, later, prod.
+#
+# ┌──────────────────────────────────────────────────────────────────────┐
+# │ SHADOW MODE — the workers deploy with                                │
+# │   RATEL_WORKER_DRY_RUN="${WORKER_DRY_RUN}"                           │
+# │ substituted from the dev-workflow's workflow-level env, which is "1" │
+# │ (shadow) BY DEFAULT: filters are evaluated and `dry-run: would       │
+# │ dispatch` is logged with the matched rules, offsets commit, but NO   │
+# │ handlers run. Flipping the workflow env to "0" is THE DEV EVENTS     │
+# │ CUTOVER and MUST coincide with disabling the AWS EventBridge rules   │
+# │ (plan § W5): running both live double-processes every event (double  │
+# │ XP, double notifications). Rollback = re-enable the EventBridge      │
+# │ rules and set the flag back to "1".                                  │
+# │                                                                      │
+# │ The CDC producer has NO dry-run: producing CdcEvents to the topic is │
+# │ side-effect-free for the app (nothing consumes them for real until   │
+# │ the workers leave shadow mode).                                      │
+# └──────────────────────────────────────────────────────────────────────┘
+#
+# CDC uses strategy Recreate: it is a single checkpointed producer
+# (checkpoints in the main DynamoDB table); a rolling update would briefly
+# run two producers over the same shards and emit duplicates. Workers keep
+# the default rolling update — Kafka consumer-group rebalancing handles the
+# overlap, and each role has its own group (ratel-worker-<role>).
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ratel-cdc
+  namespace: ratel-dev
+  labels:
+    app: ratel-cdc
+    tier: events
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: ratel-cdc
+  template:
+    metadata:
+      labels:
+        app: ratel-cdc
+        tier: events
+    spec:
+      containers:
+        - name: cdc
+          image: registry.infra.svc.cluster.local:5000/ratel-events:${SHA_TAG}
+          imagePullPolicy: IfNotPresent
+          command: ["./ratel_cdc"]
+          env:
+            - name: RATEL_KAFKA_BROKERS
+              value: redpanda-0.redpanda.infra.svc.cluster.local:9093
+            - name: RATEL_CDC_TOPIC
+              value: dev.ratel.cdc.v1
+            - name: DYNAMO_TABLE_PREFIX
+              value: ratel-dev
+            - name: RUST_LOG
+              value: info
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ratel-worker-default
+  namespace: ratel-dev
+  labels:
+    app: ratel-worker-default
+    tier: events
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ratel-worker-default
+  template:
+    metadata:
+      labels:
+        app: ratel-worker-default
+        tier: events
+    spec:
+      containers:
+        - name: worker
+          image: registry.infra.svc.cluster.local:5000/ratel-events:${SHA_TAG}
+          imagePullPolicy: IfNotPresent
+          command: ["./ratel_worker"]
+          env:
+            - name: RATEL_KAFKA_BROKERS
+              value: redpanda-0.redpanda.infra.svc.cluster.local:9093
+            - name: RATEL_CDC_TOPIC
+              value: dev.ratel.cdc.v1
+            - name: RATEL_WORKER_ROLE
+              value: default
+            # SHADOW MODE flag — see the header comment. "1" = log-only.
+            - name: RATEL_WORKER_DRY_RUN
+              value: "${WORKER_DRY_RUN}"
+            - name: DYNAMO_TABLE_PREFIX
+              value: ratel-dev
+            - name: RUST_LOG
+              value: info
+          envFrom:
+            # Runtime secrets (LAUNCHPAD_*, QDRANT_API_KEY) — handlers this
+            # worker dispatches read them via std::env::var, same as
+            # app-shell. Optional: shadow mode runs fine without them.
+            - secretRef:
+                name: ratel-dev-secrets
+                optional: true
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ratel-worker-analyze
+  namespace: ratel-dev
+  labels:
+    app: ratel-worker-analyze
+    tier: events
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ratel-worker-analyze
+  template:
+    metadata:
+      labels:
+        app: ratel-worker-analyze
+        tier: events
+    spec:
+      containers:
+        - name: worker
+          image: registry.infra.svc.cluster.local:5000/ratel-events:${SHA_TAG}
+          imagePullPolicy: IfNotPresent
+          command: ["./ratel_worker"]
+          env:
+            - name: RATEL_KAFKA_BROKERS
+              value: redpanda-0.redpanda.infra.svc.cluster.local:9093
+            - name: RATEL_CDC_TOPIC
+              value: dev.ratel.cdc.v1
+            - name: RATEL_WORKER_ROLE
+              value: analyze
+            # SHADOW MODE flag — see the header comment. "1" = log-only.
+            - name: RATEL_WORKER_DRY_RUN
+              value: "${WORKER_DRY_RUN}"
+            - name: DYNAMO_TABLE_PREFIX
+              value: ratel-dev
+            - name: RUST_LOG
+              value: info
+          envFrom:
+            - secretRef:
+                name: ratel-dev-secrets
+                optional: true
+          resources:
+            requests:
+              cpu: 250m
+              # The analyze role runs the AI report/discussion pipelines —
+              # give it headroom the other roles don't need.
+              memory: 1Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ratel-worker-egress
+  namespace: ratel-dev
+  labels:
+    app: ratel-worker-egress
+    tier: events
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ratel-worker-egress
+  template:
+    metadata:
+      labels:
+        app: ratel-worker-egress
+        tier: events
+    spec:
+      containers:
+        - name: worker
+          image: registry.infra.svc.cluster.local:5000/ratel-events:${SHA_TAG}
+          imagePullPolicy: IfNotPresent
+          command: ["./ratel_worker"]
+          env:
+            - name: RATEL_KAFKA_BROKERS
+              value: redpanda-0.redpanda.infra.svc.cluster.local:9093
+            - name: RATEL_CDC_TOPIC
+              value: dev.ratel.cdc.v1
+            - name: RATEL_WORKER_ROLE
+              value: egress
+            # SHADOW MODE flag — see the header comment. "1" = log-only.
+            - name: RATEL_WORKER_DRY_RUN
+              value: "${WORKER_DRY_RUN}"
+            - name: DYNAMO_TABLE_PREFIX
+              value: ratel-dev
+            - name: RUST_LOG
+              value: info
+          envFrom:
+            - secretRef:
+                name: ratel-dev-secrets
+                optional: true
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi

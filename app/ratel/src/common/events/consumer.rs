@@ -111,6 +111,22 @@ async fn handle_message(
         }
     };
 
+    // Shadow mode (`RATEL_WORKER_DRY_RUN=1`): evaluate filters and log what
+    // WOULD run, but execute no handlers. Lets the pipeline run against a
+    // live stream while EventBridge is still the active consumer (dev
+    // cutover plan W5) without double-processing side effects.
+    if dry_run() {
+        let matched = super::dispatcher::matched_rules(&event, roles);
+        tracing::info!(
+            matched = ?matched,
+            pk = ?event.pk(),
+            sk = ?event.sk(),
+            "dry-run: would dispatch"
+        );
+        commit(consumer, msg);
+        return;
+    }
+
     let mut summary = dispatch(&event, roles).await;
     if !summary.is_ok() {
         for (retry, backoff_secs) in RETRY_BACKOFF_SECS.iter().enumerate() {
@@ -152,6 +168,15 @@ async fn handle_message(
         dlq.send(key.as_deref(), payload).await;
     }
     commit(consumer, msg);
+}
+
+/// `RATEL_WORKER_DRY_RUN=1|true|on` — shadow mode, read once per message so
+/// it stays a pure runtime switch.
+fn dry_run() -> bool {
+    matches!(
+        std::env::var("RATEL_WORKER_DRY_RUN").as_deref(),
+        Ok("1") | Ok("true") | Ok("on")
+    )
 }
 
 fn commit(consumer: &StreamConsumer, msg: &BorrowedMessage<'_>) {
