@@ -59,12 +59,14 @@ baked into the binary keeps resolving in-cluster without a rebuild.
    (init Jobs complete → rollouts → curl the ingress with `--resolve`) → run
    the suite in the Playwright pod → dump pod logs into the job log →
    publish the HTML report to `/root/nginx/ratel-report-<num>/` (served at
-   `https://ratel-report-<num>.pr.biyard.co`) → **delete the namespace** →
-   sticky PR comment (`<!-- e2e-preview -->`) with the report URL.
-3. **PR close** → `pr-preview-cleanup.yml` (safety net): deletes the
-   namespace if a cancelled/crashed run left it behind, removes the report
-   webroot, updates the sticky comment. No database step — the preview is
-   fully namespace-contained.
+   `https://ratel-report-<num>.pr.biyard.co`) → sticky PR comment
+   (`<!-- e2e-preview -->`) with the **live preview URL**
+   (`https://ratel-<num>.pr.biyard.co`) and the report URL. The namespace is
+   NOT torn down — the preview stays clickable for the PR's lifetime
+   (asset pattern; each new run still starts from a clean recreate).
+3. **PR close** → `pr-preview-cleanup.yml` (primary teardown): deletes the
+   namespace, removes the report webroot, updates the sticky comment. No
+   database step — the preview is fully namespace-contained.
 
 The e2e job is `continue-on-error: true` (non-blocking) while the new path
 stabilizes; promote it to a required check once it has green history.
@@ -75,8 +77,9 @@ stabilizes; promote it to a required check once it has green history.
   PR comment links it). Contains per-test screenshots, videos, and traces;
   published on failure too, with a placeholder page if no report was made.
 - **Server-side story** — the "Dump pod logs" step prints every
-  deployment's and job's logs into the job log right before teardown; since
-  the namespace is deleted afterwards, this is the only place they survive.
+  deployment's and job's logs into the job log; the namespace also stays up
+  after the run, so `kubectl -n ratel-pr-<num> logs deploy/app-shell` works
+  live until the PR closes.
 - **Which phase died** — the wait step fails with the culprit's name:
   `job/localstack-init` (table/seed script), `job/qdrant-init`,
   a `rollout status` (image pull / crash / initContainer stuck waiting for
@@ -87,21 +90,16 @@ stabilizes; promote it to a required check once it has green history.
   around (skip the teardown step) to poke at it with kubectl.
 - **Manifest sanity** — `PR_NUM=999 envsubst '${PR_NUM}' < deploy/pr-preview/<f>.yaml | kubectl apply --dry-run=client -f -`.
 
-## Switching to asset-style persistent previews later
+## Persistence model (asset-style, since 2026-08-04)
 
-Everything is already shaped for it:
-
-1. Delete the "Tear down the preview namespace" step from the `e2e` job in
-   `.github/workflows/pr-workflow.yml`.
-2. In `.github/workflows/pr-preview-cleanup.yml`, the namespace delete then
-   becomes the primary teardown (it is already written to handle a live
-   namespace).
-3. Optionally reword the sticky comment to advertise the live preview URL
-   (`https://ratel-<num>.pr.biyard.co`) — with the namespace kept, the
-   exact-host Ingress keeps serving it for the PR's lifetime.
+Previews persist until PR close: the e2e job leaves the namespace running so
+the sticky comment's preview URL stays clickable; `pr-preview-cleanup.yml`
+is the primary teardown at close time.
 
 Cost of persistence: one localstack + qdrant + app-shell set per open PR
 (~1 GB RAM each), and LocalStack state lives in the pod (PERSISTENCE=0) —
-a pod restart loses seeded data, which is fine for a throwaway test run but
-would surprise reviewers using a long-lived preview; a persistent variant
-should re-enable persistence onto a PVC or rerun the init Job on restart.
+a pod restart loses seeded data. Fine for reviewing what the test run left
+behind; if long-lived previews start surprising reviewers after restarts,
+re-enable persistence onto a PVC or rerun the init Job on restart. To go
+back to teardown-on-finish, re-add a `kubectl delete namespace` step at the
+end of the e2e job.

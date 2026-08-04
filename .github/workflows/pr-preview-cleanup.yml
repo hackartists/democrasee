@@ -1,15 +1,11 @@
 name: PR preview cleanup
 
-# Safety net for the e2e preview (pr-workflow.yml). Unlike asset — where the
-# preview stack stays up for the PR's lifetime and THIS workflow is the
-# primary teardown — ratel's e2e job already deletes namespace ratel-pr-<num>
-# when the test run finishes. This workflow catches what that step can miss:
-#   - runs that were cancelled or crashed before reaching the teardown step
-#     (superseded pushes, runner eviction, timeout), leaving the namespace up;
-#   - the Playwright report webroot (ratel-report-<num>.pr.biyard.co), which
-#     deliberately outlives each run so reviewers can read it, and is only
-#     removed here when the PR closes — merged OR not (a closed PR fires
-#     this too).
+# Primary teardown for the e2e preview (pr-workflow.yml) — same model as
+# asset: the preview stack (namespace ratel-pr-<num>, serving
+# ratel-<num>.pr.biyard.co) and the Playwright report webroot
+# (ratel-report-<num>.pr.biyard.co) stay up for the PR's lifetime so the
+# sticky comment's links keep working, and are removed here when the PR
+# closes — merged OR not (a closed PR fires this too).
 #
 # No database step: the ratel preview is fully namespace-contained
 # (LocalStack + Qdrant live inside the namespace), so deleting the namespace
@@ -37,9 +33,9 @@ jobs:
       - name: Tear down the PR namespace and report webroot
         run: |
           set -uo pipefail
-          # k8s namespace ratel-pr-<num> — normally already gone (the e2e
-          # job tears it down after each run); this catches namespaces left
-          # by cancelled/crashed runs.
+          # k8s namespace ratel-pr-<num> — the live preview stack (kept up
+          # for the PR's lifetime; this close-time delete is the primary
+          # teardown).
           kubectl delete namespace "ratel-pr-${PR_NUM}" --ignore-not-found --timeout=180s || true
           # Playwright report webroot on the pr-webroot PVC.
           rm -rf "/root/nginx/ratel-report-${PR_NUM}" || true

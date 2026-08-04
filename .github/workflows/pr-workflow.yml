@@ -764,20 +764,14 @@ jobs:
             echo "<!doctype html><title>no report</title><h1>No Playwright report produced</h1>" > "${dest}/index.html"
           fi
 
-      - name: Tear down the preview namespace
-        if: always()
-        # Per project policy the preview exists only while the tests run —
-        # everything is namespace-contained, so one delete releases the
-        # pods, Services, Jobs, ConfigMaps, and the exact-host Ingress (the
-        # host falls back to the wildcard pr-nginx). The report webroot
-        # published above stays. pr-preview-cleanup.yml is only the safety
-        # net for runs that were cancelled/crashed before reaching here
-        # (and it removes the report webroot when the PR closes).
-        # --wait=false: don't burn runner minutes on finalizers; a repeat
-        # run's "Recreate" step waits for full deletion anyway.
-        run: kubectl delete namespace "${NS}" --ignore-not-found --wait=false || true
+      # NOTE: no teardown here — the preview namespace (ratel-pr-<num>) and
+      # its exact-host Ingress stay RUNNING so the preview URL in the sticky
+      # comment stays clickable for the PR's lifetime (asset pattern).
+      # pr-preview-cleanup.yml tears the namespace + report webroot down when
+      # the PR closes. Each run's "Recreate" step still starts from a clean
+      # namespace.
 
-      - name: Sticky PR comment with the report URL
+      - name: Sticky PR comment with the preview + report URLs
         if: always()
         env:
           GITHUB_TOKEN: ${{ github.token }}
@@ -790,10 +784,11 @@ jobs:
           marker="<!-- e2e-preview -->"
           repo="${{ github.repository }}"
           api="https://api.github.com"
+          app="https://ratel-${PR_NUM}.pr.biyard.co"
           report="https://ratel-report-${PR_NUM}.pr.biyard.co"
           run_url="https://github.com/${repo}/actions/runs/${{ github.run_id }}"
-          body="$(printf '%s\n### 🔎 PR e2e (k3s preview)\n\n- **Playwright report:** %s\n\n<sub>updated by [run](%s) · the preview namespace `ratel-pr-%s` is deployed for the test run and torn down when it finishes; the report stays until this PR closes</sub>\n' \
-            "$marker" "$report" "$run_url" "$PR_NUM")"
+          body="$(printf '%s\n### 🔎 PR preview (k3s e2e)\n\n- **App preview:** %s\n- **Playwright report:** %s\n\n<sub>updated by [run](%s) · namespace `ratel-pr-%s` and the report stay up until this PR closes</sub>\n' \
+            "$marker" "$app" "$report" "$run_url" "$PR_NUM")"
           payload=$(jq -nc --arg b "$body" '{body:$b}')
           auth="Authorization: Bearer ${GITHUB_TOKEN}"
           acc="Accept: application/vnd.github+json"
