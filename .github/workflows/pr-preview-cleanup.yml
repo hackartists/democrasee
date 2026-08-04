@@ -1,0 +1,68 @@
+name: PR preview cleanup
+
+# Safety net for the e2e preview (pr-workflow.yml). Unlike asset — where the
+# preview stack stays up for the PR's lifetime and THIS workflow is the
+# primary teardown — ratel's e2e job already deletes namespace ratel-pr-<num>
+# when the test run finishes. This workflow catches what that step can miss:
+#   - runs that were cancelled or crashed before reaching the teardown step
+#     (superseded pushes, runner eviction, timeout), leaving the namespace up;
+#   - the Playwright report webroot (ratel-report-<num>.pr.biyard.co), which
+#     deliberately outlives each run so reviewers can read it, and is only
+#     removed here when the PR closes — merged OR not (a closed PR fires
+#     this too).
+#
+# No database step: the ratel preview is fully namespace-contained
+# (LocalStack + Qdrant live inside the namespace), so deleting the namespace
+# is the whole app-tier teardown.
+#
+# Registry note: the ratel-app-shell:pr-<num> tags in the in-cluster registry
+# are NOT deleted here (the registry API needs digest lookups + an offline GC
+# pass); registry housekeeping is home-infra's job.
+on:
+  pull_request:
+    types: [closed]
+
+jobs:
+  cleanup:
+    # Same self-hosted pool as e2e: the runner pods carry in-cluster
+    # kubectl credentials and mount the pr-webroot PVC at /root/nginx.
+    runs-on: self-hosted
+    if: github.event_name == 'pull_request'
+    permissions:
+      contents: read
+      pull-requests: write # update the sticky comment
+    env:
+      PR_NUM: "${{ github.event.number }}"
+    steps:
+      - name: Tear down the PR namespace and report webroot
+        run: |
+          set -uo pipefail
+          # k8s namespace ratel-pr-<num> — normally already gone (the e2e
+          # job tears it down after each run); this catches namespaces left
+          # by cancelled/crashed runs.
+          kubectl delete namespace "ratel-pr-${PR_NUM}" --ignore-not-found --timeout=180s || true
+          # Playwright report webroot on the pr-webroot PVC.
+          rm -rf "/root/nginx/ratel-report-${PR_NUM}" || true
+          echo "cleaned up PR ${PR_NUM} preview leftovers"
+
+      - name: Mark the sticky comment as torn down
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        # Runner image has no `gh`; use curl + jq against the REST API.
+        run: |
+          set -uo pipefail
+          marker="<!-- e2e-preview -->"
+          repo="${{ github.repository }}"
+          api="https://api.github.com"
+          auth="Authorization: Bearer ${GITHUB_TOKEN}"
+          acc="Accept: application/vnd.github+json"
+          existing=$(curl -sf -H "$auth" -H "$acc" \
+            "${api}/repos/${repo}/issues/${PR_NUM}/comments?per_page=100" 2>/dev/null \
+            | jq -r --arg m "$marker" 'map(select(.body | startswith($m))) | .[0].id // empty' 2>/dev/null || true)
+          if [ -n "${existing}" ]; then
+            body="$(printf '%s\n🧹 PR closed — the Playwright report webroot for this PR has been removed (the preview namespace is torn down after every e2e run).\n' "$marker")"
+            payload=$(jq -nc --arg b "$body" '{body:$b}')
+            curl -sf -X PATCH -H "$auth" -H "$acc" \
+              "${api}/repos/${repo}/issues/comments/${existing}" -d "$payload" >/dev/null \
+              && echo "updated sticky comment ${existing}" || echo "::warning::comment update failed (non-fatal)"
+          fi

@@ -1,0 +1,83 @@
+# LocalStack — DynamoDB/S3/SQS/DynamoDB-Streams emulator, mirroring the
+# `localstack` service of docker-compose.yaml (testing profile). The Service
+# is named `localstack` because the app image bakes
+# DYNAMO_ENDPOINT=http://localstack:4566 at compile time (see the build-image
+# job's env block) — the compose hostname and the k8s Service name are
+# deliberately identical so the baked endpoint stays valid in-cluster.
+#
+# Differences from compose, on purpose:
+#   - PERSISTENCE=0: the namespace is torn down after every run, so there is
+#     nothing to persist (compose persisted to ./.build/localstack-data).
+#   - no /var/run/docker.sock mount: compose mounts it for LocalStack's
+#     lambda executor. The preview has no docker socket to give; `lambda`
+#     stays in SERVICES for API parity but invocations would fail — the
+#     testing app processes DynamoDB streams itself via the `local-dev`
+#     poller (stream_handler.rs), not via LocalStack lambda, so nothing in
+#     the e2e path invokes one.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: localstack
+  namespace: ratel-pr-${PR_NUM}
+  labels:
+    app: localstack
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: localstack
+  template:
+    metadata:
+      labels:
+        app: localstack
+    spec:
+      containers:
+        - name: localstack
+          image: localstack/localstack:4.14.0
+          ports:
+            - containerPort: 4566
+              name: edge
+          env:
+            - name: PERSISTENCE
+              value: "0"
+            - name: LOCALSTACK_ACKNOWLEDGE_ACCOUNT_REQUIREMENT
+              value: "1"
+            - name: SERVICES
+              value: dynamodb,s3,sqs,dynamodbstreams,lambda
+            - name: DYNAMODB_SHARE_DB
+              value: "0"
+            - name: SQS_ENDPOINT_STRATEGY
+              value: "off"
+            - name: AWS_ACCESS_KEY_ID
+              value: test
+            - name: AWS_SECRET_ACCESS_KEY
+              value: test
+            - name: AWS_REGION
+              value: ap-northeast-2
+            - name: AWS_DEFAULT_REGION
+              value: ap-northeast-2
+          # Same health signal as the compose healthcheck.
+          readinessProbe:
+            httpGet:
+              path: /_localstack/health
+              port: 4566
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            failureThreshold: 30
+          resources:
+            requests:
+              cpu: 250m
+              memory: 512Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: localstack
+  namespace: ratel-pr-${PR_NUM}
+spec:
+  selector:
+    app: localstack
+  ports:
+    - name: edge
+      port: 4566
+      targetPort: 4566

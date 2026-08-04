@@ -1,0 +1,98 @@
+# app-shell — the ratel Dioxus fullstack server, mirroring the compose
+# `app-shell-testing` service: the image built by the build-image job
+# (native arm64 `make build-testing` output packaged with app/ratel/Dockerfile
+# and pushed to the in-cluster registry as ratel-app-shell:pr-<num>).
+# Runtime env is IP/PORT only, same as compose — every backend endpoint
+# (DYNAMO_ENDPOINT=http://localstack:4566, table prefix ratel-local, bypass
+# auth, ...) was baked at compile time and stays valid because the Services
+# here reuse the compose hostnames.
+#
+# Startup ordering: compose used `depends_on: localstack healthy +
+# localstack-init completed`. Emulated with an initContainer that polls
+# DynamoDB for the ratel-local-main table — i.e. it waits for BOTH localstack
+# being up AND the init Job having created the table, so app-shell never
+# serves against a missing table (the server itself starts fine either way,
+# but requests would 500 and the readiness curl would pass misleadingly).
+# Seed data lands moments after table creation; the e2e workflow additionally
+# waits for the init Job's Complete condition before running tests, so tests
+# never race the seeds.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-shell
+  namespace: ratel-pr-${PR_NUM}
+  labels:
+    app: app-shell
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: app-shell
+  template:
+    metadata:
+      labels:
+        app: app-shell
+    spec:
+      initContainers:
+        - name: wait-for-dynamo
+          # amazon/aws-cli is multi-arch (arm64 ok). Loops until LocalStack
+          # answers DescribeTable for the table localstack-init creates.
+          image: amazon/aws-cli:latest
+          command:
+            - sh
+            - -c
+            - |
+              until aws dynamodb describe-table \
+                --table-name ratel-local-main \
+                --endpoint-url http://localstack:4566 >/dev/null 2>&1; do
+                echo "waiting for localstack + ratel-local-main table..."
+                sleep 3
+              done
+              echo "ratel-local-main table exists — starting app-shell"
+          env:
+            - name: AWS_ACCESS_KEY_ID
+              value: test
+            - name: AWS_SECRET_ACCESS_KEY
+              value: test
+            - name: AWS_REGION
+              value: ap-northeast-2
+            - name: AWS_DEFAULT_REGION
+              value: ap-northeast-2
+      containers:
+        - name: app-shell
+          image: registry.infra.svc.cluster.local:5000/ratel-app-shell:pr-${PR_NUM}
+          # The :pr-<num> tag is reused on every push to the PR — Always
+          # guarantees a rerun picks up the freshly pushed image.
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8080
+              name: http
+          env:
+            - name: IP
+              value: 0.0.0.0
+            - name: PORT
+              value: "8080"
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            failureThreshold: 60
+          resources:
+            requests:
+              cpu: 250m
+              memory: 512Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: app-shell
+  namespace: ratel-pr-${PR_NUM}
+spec:
+  selector:
+    app: app-shell
+  ports:
+    - name: http
+      port: 8080
+      targetPort: 8080

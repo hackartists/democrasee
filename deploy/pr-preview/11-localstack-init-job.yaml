@@ -1,0 +1,65 @@
+# localstack-init — one-shot Job mirroring the compose `localstack-init`
+# service: creates the ratel-local-main table (+GSIs +streams), the SQS
+# queues, and seeds the Playwright fixtures, by running the SAME
+# scripts/localstack-init-entrypoint.sh the compose path runs.
+#
+# The script + its inputs are mounted from two ConfigMaps the e2e job creates
+# from the repo files right before applying these manifests:
+#   pr-preview-scripts        ← scripts/{localstack-init-entrypoint.sh,
+#                                dynamodb-schema.json, qdrant-init-entrypoint.sh}
+#   pr-preview-dynamodb-data  ← scripts/dynamodb-data/*  (seed fixtures)
+# They mount at /scripts and /scripts/dynamodb-data, and workingDir is `/`,
+# so the script's `file:///scripts/...` and relative `file://scripts/...`
+# references resolve exactly as they do under compose.
+#
+# Same image approach as compose: amazonlinux:2023, with the script itself
+# yum-installing awscli on startup. The script's own until-loop waits for
+# LocalStack, so the Job needs no ordering hook — it just retries.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: localstack-init
+  namespace: ratel-pr-${PR_NUM}
+  labels:
+    app: localstack-init
+spec:
+  backoffLimit: 4
+  template:
+    metadata:
+      labels:
+        app: localstack-init
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: init
+          image: amazonlinux:2023
+          command: ["bash", "/scripts/localstack-init-entrypoint.sh"]
+          workingDir: /
+          env:
+            - name: AWS_ACCESS_KEY_ID
+              value: test
+            - name: AWS_SECRET_ACCESS_KEY
+              value: test
+            - name: AWS_REGION
+              value: ap-northeast-2
+            - name: AWS_DEFAULT_REGION
+              value: ap-northeast-2
+            - name: LOCALSTACK_ENDPOINT
+              value: http://localstack:4566
+            # Fresh namespace every run — nothing to reset, but keep the
+            # compose default so the script's delete-then-create path stays
+            # exercised identically.
+            - name: RESET_DB
+              value: "true"
+          volumeMounts:
+            - name: scripts
+              mountPath: /scripts
+            - name: dynamodb-data
+              mountPath: /scripts/dynamodb-data
+      volumes:
+        - name: scripts
+          configMap:
+            name: pr-preview-scripts
+        - name: dynamodb-data
+          configMap:
+            name: pr-preview-dynamodb-data
