@@ -48,20 +48,20 @@ env:
   # │ EVENTS SHADOW-MODE SWITCH (docs/k3s-migration/01-events-redpanda-  │
   # │ plan.md § W5, docs/k3s-migration/06-dev-deploy.md).                │
   # │                                                                    │
-  # │ "1" (default) deploys the ratel-worker-* pods with                 │
-  # │ RATEL_WORKER_DRY_RUN=1: they consume dev.ratel.cdc.v1, evaluate    │
-  # │ the filter rules, log `dry-run: would dispatch`, commit offsets —  │
-  # │ and run NO handlers. The AWS EventBridge rules remain the live     │
-  # │ event path.                                                        │
+  # │ CUT OVER 2026-08-04: dev workers run LIVE ("0") — the Redpanda     │
+  # │ pipeline is the ONLY dev event path. (The dev AWS EventBridge bus  │
+  # │ turned out to have no pipes/rules at all, so the flip carried no   │
+  # │ double-processing risk and there was nothing to disable.)          │
   # │                                                                    │
-  # │ Flipping this to "0" is THE DEV EVENTS CUTOVER and MUST happen     │
-  # │ together with disabling the EventBridge rules — running both live  │
-  # │ double-processes every event (double XP, double notifications).    │
-  # │ Procedure + rollback: docs/k3s-migration/06-dev-deploy.md.         │
-  # │ (The CDC producer has no dry-run — producing to the topic is       │
-  # │ side-effect-free while the workers shadow.)                        │
+  # │ Setting this back to "1" re-shadows the workers: they consume      │
+  # │ dev.ratel.cdc.v1, evaluate the filter rules, log                   │
+  # │ `dry-run: would dispatch`, commit offsets — and run NO handlers.   │
+  # │ That is the event-path rollback (offsets keep advancing, so        │
+  # │ events seen while shadowed are skipped, not replayed).             │
+  # │ Procedure: docs/k3s-migration/06-dev-deploy.md. (The CDC producer  │
+  # │ has no dry-run — producing to the topic is side-effect-free.)      │
   # └────────────────────────────────────────────────────────────────────┘
-  WORKER_DRY_RUN: "1"
+  WORKER_DRY_RUN: "0"
 
 jobs:
   # ── Build the two dev images (native arm64 → buildkitd → registry) ──────
