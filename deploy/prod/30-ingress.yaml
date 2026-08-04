@@ -1,0 +1,59 @@
+# Prod ingress — TWO hosts on one Ingress, both with real certificates
+# (same pattern as deploy/dev/30-ingress.yaml):
+#   - ratel-prod.biyard.co  LIVE now: the wildcard *.biyard.co DNS points at
+#                           the cluster; cert-manager issues via the
+#                           letsencrypt-route53 ClusterIssuer (same
+#                           annotation set as the dataroom prod ingress).
+#                           This is the pre-cutover verification URL.
+#   - ratel.foundation      PRE-WIRED but INERT: its DNS still points at the
+#                           AWS CloudFront distribution, which keeps serving
+#                           prod until the DNS cutover. The certificate CAN
+#                           already be issued — the letsencrypt-route53
+#                           ClusterIssuer has a dns01 solver for the
+#                           ratel.foundation Route53 zone (proven by
+#                           dev.ratel.foundation's cert on the dev ingress),
+#                           and DNS-01 does not care where the A record
+#                           points. Cutover is then a pure DNS change.
+# Each host gets its own tls entry/secret so one zone's issuance hiccup
+# can't block the other's certificate.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: app-shell
+  namespace: ratel-prod
+  labels:
+    app: app-shell
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-route53
+    nginx.ingress.kubernetes.io/proxy-body-size: "0"
+    nginx.ingress.kubernetes.io/proxy-request-buffering: "off"
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: ratel-prod.biyard.co
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: app-shell
+                port:
+                  name: http
+    - host: ratel.foundation
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: app-shell
+                port:
+                  name: http
+  tls:
+    - hosts:
+        - ratel-prod.biyard.co
+      secretName: ratel-prod-biyard-co-tls
+    - hosts:
+        - ratel.foundation
+      secretName: ratel-foundation-tls

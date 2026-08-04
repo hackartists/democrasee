@@ -1,0 +1,90 @@
+# app-shell — the ratel Dioxus fullstack server for the PROD environment.
+# Image: built by prod-workflow's build-images job with the REAL prod
+# compile-time env (DYNAMO_TABLE_PREFIX=ratel-prod, DYNAMO_ENDPOINT=none →
+# real AWS DynamoDB, real AWS creds baked via option_env!, no
+# bypass/local-dev/lambda features), packaged with app/ratel/Dockerfile and
+# pushed as ratel-app-shell:prod-<sha>. ${SHA_TAG} pins each deploy to its
+# commit, which is what triggers the rolling update.
+#
+# Runtime env mirrors what the AWS path injected at RUNTIME:
+#   - IP/PORT (the container listener, same as the compose/testing image)
+#   - ratel-prod-secrets (envFrom, optional): LAUNCHPAD_* + QDRANT_API_KEY —
+#     the exact set cdk/bin/cdk.ts used to inject into the Lambda runtime
+#     env (read via std::env::var at runtime, no rebuild needed).
+#   - GOOGLE_APPLICATION_CREDENTIALS + the optional ratel-prod-firebase
+#     Secret volume: the FCM service-account JSON the lambda bundle carried
+#     at .gcp/firebase-service-account.json. Optional — fcm.rs skips
+#     gracefully when the file is missing (push disabled).
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-shell
+  namespace: ratel-prod
+  labels:
+    app: app-shell
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: app-shell
+  template:
+    metadata:
+      labels:
+        app: app-shell
+    spec:
+      # Same pinning as dev/preview: the Pi node has a 16K page-size kernel
+      # (jemalloc-based workloads abort there) and is the small node anyway —
+      # keep prod serving pods on the 4K-page main node.
+      nodeSelector:
+        biyard.io/node-class: main
+      containers:
+        - name: app-shell
+          image: registry.infra.svc.cluster.local:5000/ratel-app-shell:${SHA_TAG}
+          imagePullPolicy: IfNotPresent # sha-unique tag — content never changes under it
+          ports:
+            - containerPort: 8080
+              name: http
+          env:
+            - name: IP
+              value: 0.0.0.0
+            - name: PORT
+              value: "8080"
+            - name: GOOGLE_APPLICATION_CREDENTIALS
+              value: /usr/src/app/.gcp/firebase-service-account.json
+          envFrom:
+            - secretRef:
+                name: ratel-prod-secrets
+                optional: true
+          volumeMounts:
+            - name: firebase
+              mountPath: /usr/src/app/.gcp
+              readOnly: true
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            failureThreshold: 30
+          resources:
+            requests:
+              cpu: 250m
+              memory: 512Mi
+      volumes:
+        - name: firebase
+          secret:
+            secretName: ratel-prod-firebase
+            optional: true # absent secret ⇒ empty dir ⇒ FCM gracefully disabled
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: app-shell
+  namespace: ratel-prod
+spec:
+  selector:
+    app: app-shell
+  ports:
+    - name: http
+      port: 8080
+      targetPort: 8080

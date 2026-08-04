@@ -1,0 +1,11 @@
+# Prod deployment namespace — STABLE (like deploy/dev's ratel-dev, unlike
+# deploy/pr-preview's per-PR namespaces, this one is never torn down by CI;
+# rollback is a `git revert` on main, which redeploys the previous sha).
+# Applied via envsubst by the prod-workflow deploy job; this file has no
+# placeholders but rides the same apply loop.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ratel-prod
+  labels:
+    app.kubernetes.io/part-of: ratel-prod

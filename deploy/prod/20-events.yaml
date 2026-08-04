@@ -1,0 +1,238 @@
+# Events tier (PROD) — the Redpanda CDC producer + worker consumers
+# (docs/k3s-migration/01-events-redpanda-plan.md). All four Deployments run
+# the ratel-events image (deploy/dev/Dockerfile.events — the image recipe is
+# env-agnostic, it just packages the ratel_cdc + ratel_worker binaries; the
+# PROD-ness comes from prod-workflow's build-images job baking the prod
+# compile-time env into the binaries with --features redpanda).
+# Events config (RATEL_*) is RUNTIME env by design (events/config.rs), so
+# one image recipe serves dev and prod.
+#
+# ┌──────────────────────────────────────────────────────────────────────┐
+# │ SHADOW MODE — the workers deploy with                                │
+# │   RATEL_WORKER_DRY_RUN="${WORKER_DRY_RUN}"                           │
+# │ substituted from prod-workflow's workflow-level env, which is "1"    │
+# │ (shadow) and MUST STAY "1" until the prod events cutover: unlike     │
+# │ dev (whose EventBridge bus turned out to have no rules), the PROD    │
+# │ bus has ~40 LIVE Pipes + Rules driving the app-shell Lambdas         │
+# │ (docs/k3s-migration/aws-infrastructure-inventory.md). In shadow      │
+# │ mode filters are evaluated and `dry-run: would dispatch` is logged   │
+# │ with the matched rules, offsets commit, but NO handlers run.         │
+# │ Flipping the workflow env to "0" is THE PROD EVENTS CUTOVER and      │
+# │ MUST coincide with disabling the AWS EventBridge rules (plan § W5):  │
+# │ running both live double-processes every event (double XP, double    │
+# │ notifications, double cross-posts). Rollback = re-shadow the workers │
+# │ FIRST ("1"), then re-enable the EventBridge rules.                   │
+# │ Procedure: docs/k3s-migration/07-prod-deploy.md.                     │
+# │                                                                      │
+# │ The CDC producer has NO dry-run: producing CdcEvents to the topic is │
+# │ side-effect-free for the app (nothing consumes them for real until   │
+# │ the workers leave shadow mode).                                      │
+# └──────────────────────────────────────────────────────────────────────┘
+#
+# CDC uses strategy Recreate: it is a single checkpointed producer
+# (checkpoints in the main DynamoDB table); a rolling update would briefly
+# run two producers over the same shards and emit duplicates. Workers keep
+# the default rolling update — Kafka consumer-group rebalancing handles the
+# overlap, and each role has its own group (ratel-worker-<role>).
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ratel-cdc
+  namespace: ratel-prod
+  labels:
+    app: ratel-cdc
+    tier: events
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: ratel-cdc
+  template:
+    metadata:
+      labels:
+        app: ratel-cdc
+        tier: events
+    spec:
+      # Same pinning as dev/preview: keep prod pods on the 4K-page main node
+      # (the Pi node's 16K page-size kernel breaks jemalloc workloads and it
+      # is the small node anyway).
+      nodeSelector:
+        biyard.io/node-class: main
+      containers:
+        - name: cdc
+          image: registry.infra.svc.cluster.local:5000/ratel-events:${SHA_TAG}
+          imagePullPolicy: IfNotPresent
+          command: ["./ratel_cdc"]
+          env:
+            - name: RATEL_KAFKA_BROKERS
+              value: redpanda-0.redpanda.infra.svc.cluster.local:9093
+            - name: RATEL_CDC_TOPIC
+              value: prod.ratel.cdc.v1
+            - name: DYNAMO_TABLE_PREFIX
+              value: ratel-prod
+            - name: RUST_LOG
+              value: info
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ratel-worker-default
+  namespace: ratel-prod
+  labels:
+    app: ratel-worker-default
+    tier: events
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ratel-worker-default
+  template:
+    metadata:
+      labels:
+        app: ratel-worker-default
+        tier: events
+    spec:
+      # Same pinning as dev/preview — see the ratel-cdc comment above.
+      nodeSelector:
+        biyard.io/node-class: main
+      containers:
+        - name: worker
+          image: registry.infra.svc.cluster.local:5000/ratel-events:${SHA_TAG}
+          imagePullPolicy: IfNotPresent
+          command: ["./ratel_worker"]
+          env:
+            - name: RATEL_KAFKA_BROKERS
+              value: redpanda-0.redpanda.infra.svc.cluster.local:9093
+            - name: RATEL_CDC_TOPIC
+              value: prod.ratel.cdc.v1
+            - name: RATEL_WORKER_ROLE
+              value: default
+            # SHADOW MODE flag — see the header comment. "1" = log-only, and
+            # prod MUST stay "1" until the AWS EventBridge rules are disabled.
+            - name: RATEL_WORKER_DRY_RUN
+              value: "${WORKER_DRY_RUN}"
+            - name: DYNAMO_TABLE_PREFIX
+              value: ratel-prod
+            - name: RUST_LOG
+              value: info
+          envFrom:
+            # Runtime secrets (LAUNCHPAD_*, QDRANT_API_KEY) — handlers this
+            # worker dispatches read them via std::env::var, same as
+            # app-shell. Optional: shadow mode runs fine without them.
+            - secretRef:
+                name: ratel-prod-secrets
+                optional: true
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ratel-worker-analyze
+  namespace: ratel-prod
+  labels:
+    app: ratel-worker-analyze
+    tier: events
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ratel-worker-analyze
+  template:
+    metadata:
+      labels:
+        app: ratel-worker-analyze
+        tier: events
+    spec:
+      # Same pinning as dev/preview — see the ratel-cdc comment above.
+      nodeSelector:
+        biyard.io/node-class: main
+      containers:
+        - name: worker
+          image: registry.infra.svc.cluster.local:5000/ratel-events:${SHA_TAG}
+          imagePullPolicy: IfNotPresent
+          command: ["./ratel_worker"]
+          env:
+            - name: RATEL_KAFKA_BROKERS
+              value: redpanda-0.redpanda.infra.svc.cluster.local:9093
+            - name: RATEL_CDC_TOPIC
+              value: prod.ratel.cdc.v1
+            - name: RATEL_WORKER_ROLE
+              value: analyze
+            # SHADOW MODE flag — see the header comment. "1" = log-only, and
+            # prod MUST stay "1" until the AWS EventBridge rules are disabled.
+            - name: RATEL_WORKER_DRY_RUN
+              value: "${WORKER_DRY_RUN}"
+            - name: DYNAMO_TABLE_PREFIX
+              value: ratel-prod
+            - name: RUST_LOG
+              value: info
+          envFrom:
+            - secretRef:
+                name: ratel-prod-secrets
+                optional: true
+          resources:
+            requests:
+              cpu: 250m
+              # The analyze role runs the AI report/discussion pipelines —
+              # give it headroom the other roles don't need.
+              memory: 1Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ratel-worker-egress
+  namespace: ratel-prod
+  labels:
+    app: ratel-worker-egress
+    tier: events
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ratel-worker-egress
+  template:
+    metadata:
+      labels:
+        app: ratel-worker-egress
+        tier: events
+    spec:
+      # Same pinning as dev/preview — see the ratel-cdc comment above.
+      nodeSelector:
+        biyard.io/node-class: main
+      containers:
+        - name: worker
+          image: registry.infra.svc.cluster.local:5000/ratel-events:${SHA_TAG}
+          imagePullPolicy: IfNotPresent
+          command: ["./ratel_worker"]
+          env:
+            - name: RATEL_KAFKA_BROKERS
+              value: redpanda-0.redpanda.infra.svc.cluster.local:9093
+            - name: RATEL_CDC_TOPIC
+              value: prod.ratel.cdc.v1
+            - name: RATEL_WORKER_ROLE
+              value: egress
+            # SHADOW MODE flag — see the header comment. "1" = log-only, and
+            # prod MUST stay "1" until the AWS EventBridge rules are disabled.
+            - name: RATEL_WORKER_DRY_RUN
+              value: "${WORKER_DRY_RUN}"
+            - name: DYNAMO_TABLE_PREFIX
+              value: ratel-prod
+            - name: RUST_LOG
+              value: info
+          envFrom:
+            - secretRef:
+                name: ratel-prod-secrets
+                optional: true
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
